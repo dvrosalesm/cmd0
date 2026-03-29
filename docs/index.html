@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>cmd0 — Desktop AI Agent</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --bg: #0a0a0c;
+      --bg-elevated: #141418;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: rgba(255, 255, 255, 0.9);
+      --text-muted: rgba(255, 255, 255, 0.5);
+      --accent: #fff;
+    }
+    
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    
+    .noise {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+    
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 80px 24px;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 80px;
+    }
+    
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    
+    .logo-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    
+    h1 {
+      font-size: 56px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+    
+    .tagline {
+      font-size: 20px;
+      color: var(--text-muted);
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 32px;
+      padding: 12px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      border-radius: 8px;
+      transition: opacity 0.2s;
+    }
+    
+    .cta:hover { opacity: 0.9; }
+    
+    .cta-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      margin-left: 12px;
+    }
+    
+    section {
+      margin-bottom: 64px;
+    }
+    
+    h2 {
+      font-size: 14px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+    
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    
+    .feature {
+      padding: 20px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    
+    .feature h3 {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .feature p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    
+    .key {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      font-family: SF Mono, Monaco, monospace;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    
+    .demo {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      font-family: SF Mono, Monaco, monospace;
+      font-size: 13px;
+      overflow-x: auto;
+    }
+    
+    .demo-line {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+    }
+    
+    .demo-line:last-child { margin-bottom: 0; }
+    .prompt { color: var(--text); }
+    .cmd { color: #7dd3fc; }
+    .response { color: #86efac; }
+    
+    .install {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    
+    pre {
+      font-family: SF Mono, Monaco, monospace;
+      font-size: 13px;
+      overflow-x: auto;
+    }
+    
+    code {
+      font-family: SF Mono, Monaco, monospace;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    
+    .install pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .install-step {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    
+    .install-step:last-child { margin-bottom: 0; }
+    
+    .step-num {
+      flex-shrink: 0;
+      width: 24px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .step-content { color: var(--text-muted); }
+    .step-content strong { color: var(--text); font-weight: 500; }
+    
+    footer {
+      text-align: center;
+      padding-top: 40px;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    
+    footer a {
+      color: var(--text);
+      text-decoration: none;
+    }
+    
+    footer a:hover { text-decoration: underline; }
+    
+    @media (max-width: 600px) {
+      h1 { font-size: 40px; }
+      .tagline { font-size: 18px; }
+      .container { padding: 60px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="noise"></div>
+  
+  <div class="container">
+    <header>
+      <div class="logo">
+        <div class="logo-icon">⌘0</div>
+      </div>
+      <h1>cmd0</h1>
+      <p class="tagline">A desktop AI agent that lives in your menubar. Trigger with <span class="key">⌘0</span>. Ask it anything.</p>
+      <div>
+        <a href="#install" class="cta">Install</a>
+        <a href="https://github.com/diegorosalessa/cmd0" class="cta cta-secondary">GitHub →</a>
+      </div>
+    </header>
+    
+    <section>
+      <h2>Features</h2>
+      <div class="feature-grid">
+        <div class="feature">
+          <h3>🔍 Web Search</h3>
+          <p>Search DuckDuckGo and fetch any URL. Research without leaving your flow.</p>
+        </div>
+        <div class="feature">
+          <h3>🌐 Browser Control</h3>
+          <p>Automate Chrome via Playwright. Navigate, click, fill forms, take screenshots.</p>
+        </div>
+        <div class="feature">
+          <h3>💻 System Access</h3>
+          <p>Run bash commands, read/write files, send macOS notifications.</p>
+        </div>
+        <div class="feature">
+          <h3>🖼️ Screenshots</h3>
+          <p>Capture any screen region. Paste or attach images to your prompts.</p>
+        </div>
+        <div class="feature">
+          <h3>🔄 Self-Modification</h3>
+          <p>cmd0 can edit its own source code. Use <code>/0</code> to evolve the agent.</p>
+        </div>
+        <div class="feature">
+          <h3>⏰ Task Daemon</h3>
+          <p>Schedule recurring or one-time tasks. Background runner checks every minute.</p>
+        </div>
+        <div class="feature">
+          <h3>💾 Snapshots</h3>
+          <p>Save and restore complete state. Experiment freely, roll back anytime.</p>
+        </div>
+        <div class="feature">
+          <h3>🔐 Safe Mode</h3>
+          <p>Start with <code>--safe</code> to run without self-modification or file access.</p>
+        </div>
+      </div>
+    </section>
+    
+    <section>
+      <h2>How it works</h2>
+      <div class="demo">
+        <div class="demo-line"><span class="prompt">$</span> <span class="cmd">Press ⌘0</span></div>
+        <div class="demo-line"><span class="response">→ Floating chat appears</span></div>
+        <div class="demo-line"><span class="prompt">$</span> <span>"Search for the latest AI news"</span></div>
+        <div class="demo-line"><span class="response">→ web_search: "latest AI news"</span></div>
+        <div class="demo-line"><span class="response">→ [results appear in chat]</span></div>
+        <div class="demo-line"><span class="prompt">$</span> <span class="cmd">/0 add a voice input button</span></div>
+        <div class="demo-line"><span class="response">→ anima_read, anima_write, anima_reload</span></div>
+        <div class="demo-line"><span class="response">→ [app restarts with new feature]</span></div>
+      </div>
+    </section>
+    
+    <section id="install">
+      <h2>Install</h2>
+      <div class="install">
+        <pre><code># Clone and run the install script
+git clone https://github.com/diegorosalessa/cmd0.git
+cd cmd0
+./install.sh</code></pre>
+        <div class="install-step">
+          <span class="step-num">1</span>
+          <div class="step-content">Installs dependencies via <strong>npm</strong></div>
+        </div>
+        <div class="install-step">
+          <span class="step-num">2</span>
+          <div class="step-content">Builds TypeScript and compiles the app</div>
+        </div>
+        <div class="install-step">
+          <span class="step-num">3</span>
+          <div class="step-content">Adds <strong>Cmd+0</strong> global shortcut</div>
+        </div>
+        <div class="install-step">
+          <span class="step-num">4</span>
+          <div class="step-content">Launches the agent in your menubar</div>
+        </div>
+      </div>
+    </section>
+    
+    <section>
+      <h2>Commands</h2>
+      <div class="feature-grid">
+        <div class="feature">
+          <h3><span class="key">/0</span></h3>
+          <p>Modify own source code. The agent reads, writes, and reloads itself.</p>
+        </div>
+        <div class="feature">
+          <h3><span class="key">/cancel</span></h3>
+          <p>Stop the current agent operation immediately.</p>
+        </div>
+        <div class="feature">
+          <h3><span class="key">/tasks</span></h3>
+          <p>Manage background tasks. Add recurring jobs or one-off reminders.</p>
+        </div>
+        <div class="feature">
+          <h3><span class="key">/snap &lt;name&gt;</span></h3>
+          <p>Save a complete snapshot of the current state.</p>
+        </div>
+        <div class="feature">
+          <h3><span class="key">/restore &lt;name&gt;</span></h3>
+          <p>Restore from a previously saved snapshot.</p>
+        </div>
+        <div class="feature">
+          <h3><span class="key">/safe</span></h3>
+          <p>Restart in safe mode with restricted permissions.</p>
+        </div>
+      </div>
+    </section>
+    
+    <section>
+      <h2>Configuration</h2>
+      <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">On first launch, cmd0 will ask for your API key. Supports:</p>
+      <div class="feature-grid">
+        <div class="feature">
+          <h3>OpenRouter</h3>
+          <p>Keys starting with <code>sk-or-...</code>. Default: minimax/minimax-m2.7</p>
+        </div>
+        <div class="feature">
+          <h3>Fireworks AI</h3>
+          <p>Keys starting with <code>fw_...</code>. Default: accounts/fireworks/routers/kimi-k2p5-turbo</p>
+        </div>
+      </div>
+    </section>
+    
+    <footer>
+      <p>Built with <a href="https://github.com/mario-zechner/pi-coding-agent">pi-coding-agent</a></p>
+      <p style="margin-top: 8px; font-size: 12px;">macOS only • MIT License</p>
+    </footer>
+  </div>
+</body>
+</html>
