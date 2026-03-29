@@ -5,6 +5,7 @@ A desktop AI agent that lives in your system tray and menubar. Press **Cmd+0** a
 [![License: MIT](https://img.shields.io/badge/License-MIT-white.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/macOS-13+-white.svg)](https://apple.com/macos)
 [![Electron](https://img.shields.io/badge/Electron-41+-white.svg)](https://electronjs.org)
+[![GitHub stars](https://img.shields.io/github/stars/dvrosalesm/cmd0?style=social)](https://github.com/dvrosalesm/cmd0)
 
 ---
 
