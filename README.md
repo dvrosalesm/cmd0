@@ -27,11 +27,11 @@ cmd0 is a lightweight, always-on desktop companion powered by LLMs (OpenRouter o
 
 ```bash
 # Clone the repo
-git clone https://github.com/diegorosalessa/cmd0.git
+git clone https://github.com/dvrosalesm/cmd0.git
 cd cmd0
 
 # Install
-curl -fsSL https://raw.githubusercontent.com/diegorosalessa/cmd0/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/dvrosalesm/cmd0/main/install.sh | bash
 
 # Or run install script directly
 ./install.sh
