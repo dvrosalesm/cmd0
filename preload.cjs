@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('cmd0', {
   onNeedKey: (cb) => ipcRenderer.on('agent:need-key', cb),
   onReady: (cb) => ipcRenderer.on('agent:ready', cb),
   onKeyError: (cb) => ipcRenderer.on('agent:key-error', (_e, msg) => cb(msg)),
+  validateKey: (key) => ipcRenderer.invoke('agent:validate-key', key),
   setKey: (key, model) => ipcRenderer.send('agent:set-key', key, model),
   prompt: (text) => ipcRenderer.send('agent:prompt', text),
   promptWithImage: (text, imageBase64) => ipcRenderer.send('agent:prompt-image', text, imageBase64),

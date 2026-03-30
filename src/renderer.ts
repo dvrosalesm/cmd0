@@ -134,7 +134,16 @@ input.addEventListener('keydown', (e) => {
 
   const text = input.value.trim(); input.value = ''; bar.classList.remove('command');
 
-  if (waitingForKey) { if (!text) return; pendingKey = text; askForModel(text.startsWith('fw_') ? 'fireworks' : 'openrouter'); return; }
+  if (waitingForKey) {
+    if (!text) return;
+    input.disabled = true; showBubble('Validating key...');
+    window.cmd0.validateKey(text).then(r => {
+      input.disabled = false;
+      if (r.ok) { pendingKey = text; askForModel(r.provider!); }
+      else { showBubble('Invalid key: ' + (r.error || 'unknown error') + '\n\nTry again.'); input.focus(); }
+    });
+    return;
+  }
   if (waitingForModel) { showBubble('Connecting...'); input.disabled = true; waitingForModel = false; window.cmd0.setKey(pendingKey, text || undefined); return; }
 
   if (text === '/safe') { showBubble('Restarting in safe mode...'); window.cmd0.relaunchSafe(); return; }

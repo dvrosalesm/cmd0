@@ -13,6 +13,7 @@ interface Window {
     onNeedKey: (cb: () => void) => void;
     onReady: (cb: () => void) => void;
     onKeyError: (cb: (msg: string) => void) => void;
+    validateKey: (key: string) => Promise<{ ok: boolean; error?: string; provider?: string }>;
     setKey: (key: string, model?: string) => void;
     prompt: (text: string) => void;
     promptWithImage: (text: string, imageBase64: string) => void;

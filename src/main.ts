@@ -25,6 +25,15 @@ import { chromium, Browser, Page, BrowserContext } from 'playwright';
 
 const execFileAsync = promisify(execFile);
 
+const IS_MAC = process.platform === 'darwin';
+const IS_LINUX = process.platform === 'linux';
+
+// Enable Wayland support via Ozone on Linux
+if (IS_LINUX && process.env.WAYLAND_DISPLAY) {
+  app.commandLine.appendSwitch('enable-features', 'UseOzonePlatform');
+  app.commandLine.appendSwitch('ozone-platform', 'wayland');
+}
+
 app.setName('cmd0');
 
 const __filename = fileURLToPath(import.meta.url);
@@ -774,14 +783,18 @@ function createTools(): ToolDefinition[] {
     },
     {
       name: 'notify', label: 'Notify',
-      description: 'Send macOS notification.',
-      promptSnippet: 'notify — send a macOS notification',
+      description: 'Send a desktop notification.',
+      promptSnippet: 'notify — send a desktop notification',
       parameters: Type.Object({ title: Type.String(), message: Type.String() }),
       async execute(_id: string, p: { title: string; message: string }) {
         try {
-          await execFileAsync('osascript', [
-            '-e', `display notification ${JSON.stringify(p.message)} with title ${JSON.stringify(p.title)}`
-          ]);
+          if (IS_MAC) {
+            await execFileAsync('osascript', [
+              '-e', `display notification ${JSON.stringify(p.message)} with title ${JSON.stringify(p.title)}`
+            ]);
+          } else {
+            await execFileAsync('notify-send', [p.title, p.message]);
+          }
           return text('Sent.');
         } catch (e: any) {
           return text(`Failed: ${e.message}`);
@@ -890,7 +903,9 @@ function createTools(): ToolDefinition[] {
             
             const context = await browser.newContext({
               viewport: { width: 1280, height: 800 },
-              userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+              userAgent: IS_MAC
+                ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             });
             
             const page = await context.newPage();
@@ -952,13 +967,24 @@ async function captureScreenshot(): Promise<string | null> {
   try {
     if (win?.isVisible()) win.hide();
     await new Promise(r => setTimeout(r, 300));
-    await execFileAsync('screencapture', ['-x', '-s', fp]);
+    if (IS_MAC) {
+      await execFileAsync('screencapture', ['-x', '-s', fp]);
+    } else {
+      // Linux (Wayland: grim+slurp, X11: scrot fallback)
+      try {
+        const { stdout: geom } = await execFileAsync('slurp');
+        await execFileAsync('grim', ['-g', geom.trim(), fp]);
+      } catch {
+        await execFileAsync('scrot', ['-s', '-f', fp]);
+      }
+    }
     if (win) { win.show(); win.focus(); }
     if (existsSync(fp)) {
       const buf = readFileSync(fp);
       if (buf.length < 1000) {
         try { unlinkSync(fp); } catch {}
-        return await promptScreenPermission();
+        if (IS_MAC) return await promptScreenPermission();
+        return null;
       }
       try { unlinkSync(fp); } catch (e) { console.error('[cmd0] SS cleanup:', e); }
       return buf.toString('base64');
@@ -966,7 +992,7 @@ async function captureScreenshot(): Promise<string | null> {
   } catch (e) {
     console.error('[cmd0] SS failed:', e);
     if (win && !win.isVisible()) { win.show(); win.focus(); }
-    return await promptScreenPermission();
+    if (IS_MAC) return await promptScreenPermission();
   }
   if (win && !win.isVisible()) { win.show(); win.focus(); }
   return null;
@@ -1116,8 +1142,9 @@ function createWindow() {
     width: 400, height: 300,
     x: cfg.windowX ?? Math.round((sw - 400) / 2),
     y: cfg.windowY ?? (sh - 340),
-    frame: false, transparent: true, alwaysOnTop: true,
+    frame: false, transparent: IS_MAC, alwaysOnTop: true,
     resizable: false, skipTaskbar: true, hasShadow: false, show: false,
+    ...(IS_LINUX ? { backgroundColor: '#00000000' } : {}),
     webPreferences: {
       preload: join(__dirname, '..', 'preload.cjs'),
       contextIsolation: true, nodeIntegration: false,
@@ -1129,18 +1156,13 @@ function createWindow() {
   win.setVisibleOnAllWorkspaces(true);
   win.setIgnoreMouseEvents(false);
 
-  globalShortcut.register('CommandOrControl+0', () => {
-    if (!win) return;
-    if (win.isVisible()) {
-      win.hide();
-      saveWinState(false);
-    } else {
-      win.show();
-      win.webContents.send('widget:focus');
-      if (!apiKey) win.webContents.send('agent:need-key');
-      saveWinState(true);
-    }
-  });
+  // globalShortcut works on macOS and X11, but not on Wayland.
+  // On Wayland/Hyprland, use: bind = SUPER, 0, exec, cmd0
+  // The single-instance lock handles the toggle.
+  const isWayland = IS_LINUX && !!process.env.WAYLAND_DISPLAY;
+  if (!isWayland) {
+    globalShortcut.register('CommandOrControl+0', () => toggleWindow());
+  }
 
   if (cfg.windowVisible) {
     win.show();
@@ -1162,6 +1184,24 @@ function saveWinState(vis: boolean) {
 }
 
 // --- IPC ---
+ipcMain.handle('agent:validate-key', async (_e, key: string) => {
+  const k = reqStr(key, 'Key', MAX_KEY);
+  const provider = detectProvider(k);
+  const base = provider === 'fireworks'
+    ? 'https://api.fireworks.ai/inference/v1'
+    : 'https://openrouter.ai/api/v1';
+  try {
+    const r = await fetch(`${base}/models`, {
+      headers: { 'Authorization': `Bearer ${k}` },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!r.ok) return { ok: false, error: `Invalid key (${r.status})` };
+    return { ok: true, provider };
+  } catch (e: any) {
+    return { ok: false, error: e.message };
+  }
+});
+
 ipcMain.on('agent:set-key', async (_e, key: string, model?: string) => {
   if (!win) return;
   try {
@@ -1214,13 +1254,27 @@ ipcMain.on('widget:move', (_e, { dx, dy }: { dx: number; dy: number }) => {
 ipcMain.handle('read-clipboard-files', async () => {
   const r: { name: string; content: string }[] = [];
   try {
-    const raw = clipboard.read('NSFilenamesPboardType');
-    if (raw) {
-      const ms = raw.match(/<string>(.*?)<\/string>/g);
-      if (ms) {
-        for (const m of ms) {
-          const fp = m.replace(/<\/?string>/g, '');
-          if (existsSync(fp)) {
+    if (IS_MAC) {
+      const raw = clipboard.read('NSFilenamesPboardType');
+      if (raw) {
+        const ms = raw.match(/<string>(.*?)<\/string>/g);
+        if (ms) {
+          for (const m of ms) {
+            const fp = m.replace(/<\/?string>/g, '');
+            if (existsSync(fp)) {
+              try { r.push(await readTextAttach(fp)); }
+              catch (e) { console.warn('[cmd0] Skip clipboard file:', e); }
+            }
+          }
+        }
+      }
+    } else {
+      // Linux: try reading file paths from clipboard via text
+      const raw = clipboard.readText().trim();
+      if (raw) {
+        for (const line of raw.split('\n')) {
+          const fp = line.trim().replace(/^file:\/\//, '');
+          if (fp && existsSync(fp)) {
             try { r.push(await readTextAttach(fp)); }
             catch (e) { console.warn('[cmd0] Skip clipboard file:', e); }
           }
@@ -1259,23 +1313,52 @@ async function cleanupBrowsers() {
   browserSessions.clear();
 }
 
+// --- Toggle helper ---
+function toggleWindow() {
+  if (!win) return;
+  if (win.isVisible()) {
+    win.hide();
+    saveWinState(false);
+  } else {
+    win.show();
+    win.webContents.send('widget:focus');
+    if (!apiKey) win.webContents.send('agent:need-key');
+    saveWinState(true);
+  }
+}
+
 // --- Startup ---
 const CLI_MODE = snapIdx !== -1 || restoreIdx !== -1;
 
+// Single-instance lock: second launch toggles the existing window
+// (needed on Wayland where globalShortcut doesn't work)
+if (!CLI_MODE) {
+  const gotLock = app.requestSingleInstanceLock();
+  if (!gotLock) {
+    app.quit();
+  } else {
+    app.on('second-instance', () => toggleWindow());
+  }
+}
+
 if (!CLI_MODE) app.whenReady().then(async () => {
   const iconPath = join(__dirname, '..', 'icon.png');
-  if (existsSync(iconPath)) app.dock?.setIcon(nativeImage.createFromPath(iconPath));
+  if (IS_MAC && existsSync(iconPath)) app.dock?.setIcon(nativeImage.createFromPath(iconPath));
 
-  const trayPath = join(__dirname, '..', 'trayTemplate.png');
-  if (existsSync(trayPath)) {
-    const img = nativeImage.createFromPath(trayPath);
-    img.setTemplateImage(true);
+  const trayIconPath = IS_MAC
+    ? join(__dirname, '..', 'trayTemplate.png')
+    : join(__dirname, '..', 'icon.png');
+  if (existsSync(trayIconPath)) {
+    const img = nativeImage.createFromPath(trayIconPath);
+    if (IS_MAC) img.setTemplateImage(true);
     const r = img.resize({ width: 18, height: 18 });
-    r.setTemplateImage(true);
+    if (IS_MAC) r.setTemplateImage(true);
     tray = new Tray(r);
     tray.setToolTip('cmd0');
+    const isWayland = IS_LINUX && !!process.env.WAYLAND_DISPLAY;
+    const hotkeyLabel = IS_MAC ? 'Cmd+0' : isWayland ? 'Super+0' : 'Ctrl+0';
     tray.setContextMenu(Menu.buildFromTemplate([
-      { label: 'Toggle (Cmd+0)', click: () => {
+      { label: `Toggle (${hotkeyLabel})`, click: () => {
         if (!win) return;
         if (win.isVisible()) win.hide();
         else { win.show(); win.webContents.send('widget:focus'); }
@@ -1305,8 +1388,15 @@ if (!CLI_MODE) app.whenReady().then(async () => {
   const cfg = loadConfig();
   const key = cfg.apiKey || cfg.openrouterKey || process.env.OPENROUTER_API_KEY;
   if (key) {
-    try { await initAgent(key, cfg.model || undefined); }
-    catch (e) { console.error('[cmd0] Init failed:', e); }
+    try {
+      await initAgent(key, cfg.model || undefined);
+    } catch (e) {
+      console.error('[cmd0] Init failed, requesting new key:', e);
+      // Saved key didn't work — fall back to onboarding
+      win?.webContents.once('did-finish-load', () => {
+        win!.webContents.send('agent:need-key');
+      });
+    }
   }
 });
 
