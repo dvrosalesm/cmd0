@@ -48,6 +48,7 @@ const CONFIG_FILE = join(DATA_DIR, 'config.json');
 const TASKS_FILE = join(CMD0_DIR, 'tasks.md');
 const SNAPSHOTS_DIR = join(CMD0_DIR, 'snapshots');
 const BACKUP_DIR = join(CMD0_DIR, 'base');
+const PID_FILE = join(CMD0_DIR, 'pid');
 
 // --- CLI flags ---
 const SAFE_MODE = process.argv.includes('--safe');
@@ -1372,7 +1373,7 @@ if (!CLI_MODE) app.whenReady().then(async () => {
     tray = new Tray(r);
     tray.setToolTip('cmd0');
     const isWayland = IS_LINUX && !!process.env.WAYLAND_DISPLAY;
-    const hotkeyLabel = IS_MAC ? 'Cmd+0' : isWayland ? 'Super+0' : 'Ctrl+0';
+    const hotkeyLabel = IS_MAC ? 'Cmd+0' : isWayland ? 'Super+-' : 'Ctrl+0';
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: `Toggle (${hotkeyLabel})`, click: () => {
         if (!win) return;
@@ -1390,6 +1391,8 @@ if (!CLI_MODE) app.whenReady().then(async () => {
   }
 
   ensureDirs();
+  writeFileSync(PID_FILE, String(process.pid));
+  process.on('SIGUSR2', () => toggleWindow());
   backupBaseFiles();
 
   if (SAFE_MODE) {
@@ -1426,8 +1429,9 @@ if (!CLI_MODE) app.whenReady().then(async () => {
   }
 });
 
-app.on('will-quit', async () => { 
-  stopDaemon(); 
+app.on('will-quit', async () => {
+  stopDaemon();
+  try { unlinkSync(PID_FILE); } catch {}
   globalShortcut.unregisterAll(); 
   await cleanupBrowsers();
   if (settingsManager) await settingsManager.flush(); 

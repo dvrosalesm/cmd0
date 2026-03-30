@@ -21,32 +21,7 @@ if [ "$OS" = "Darwin" ]; then
 cd "CMD0_DIR_PLACEHOLDER"
 export PATH="NODE_BIN_PLACEHOLDER:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:$PATH"
 
-case "$*" in
-  *--help*|-h)
-    echo "Usage: cmd0 [options]"
-    echo ""
-    echo "Options:"
-    echo "  --safe              Start in safe mode (restore base files)"
-    echo "  --snap <name>       Save a snapshot"
-    echo "  --restore <name>    Restore a snapshot"
-    echo "  -h, --help          Show this help"
-    exit 0
-    ;;
-  *--snap*|*--restore*)
-    exec npx electron . "$@"
-    ;;
-  *)
-    npx electron . "$@" &
-    disown
-    ;;
-esac
-LAUNCHER
-  sed -i'' -e "s|CMD0_DIR_PLACEHOLDER|$CMD0_DIR|g" -e "s|NODE_BIN_PLACEHOLDER|$NODE_BIN|g" "$CMD0_DIR/cmd0-launcher.sh"
-else
-  cat > "$CMD0_DIR/cmd0-launcher.sh" << 'LAUNCHER'
-#!/bin/bash
-cd "CMD0_DIR_PLACEHOLDER"
-export PATH="NODE_BIN_PLACEHOLDER:$PATH"
+CMD0_PID="$HOME/.cmd0/pid"
 
 case "$*" in
   *--help*|-h)
@@ -63,8 +38,45 @@ case "$*" in
     exec npx electron . "$@"
     ;;
   *)
-    npx electron . "$@" &
-    disown
+    if [ -f "$CMD0_PID" ] && kill -0 "$(cat "$CMD0_PID")" 2>/dev/null; then
+      kill -USR2 "$(cat "$CMD0_PID")"
+    else
+      npx electron . "$@" &
+      disown
+    fi
+    ;;
+esac
+LAUNCHER
+  sed -i'' -e "s|CMD0_DIR_PLACEHOLDER|$CMD0_DIR|g" -e "s|NODE_BIN_PLACEHOLDER|$NODE_BIN|g" "$CMD0_DIR/cmd0-launcher.sh"
+else
+  cat > "$CMD0_DIR/cmd0-launcher.sh" << 'LAUNCHER'
+#!/bin/bash
+cd "CMD0_DIR_PLACEHOLDER"
+export PATH="NODE_BIN_PLACEHOLDER:$PATH"
+
+CMD0_PID="$HOME/.cmd0/pid"
+
+case "$*" in
+  *--help*|-h)
+    echo "Usage: cmd0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  --safe              Start in safe mode (restore base files)"
+    echo "  --snap <name>       Save a snapshot"
+    echo "  --restore <name>    Restore a snapshot"
+    echo "  -h, --help          Show this help"
+    exit 0
+    ;;
+  *--snap*|*--restore*)
+    exec npx electron . "$@"
+    ;;
+  *)
+    if [ -f "$CMD0_PID" ] && kill -0 "$(cat "$CMD0_PID")" 2>/dev/null; then
+      kill -USR2 "$(cat "$CMD0_PID")"
+    else
+      npx electron . "$@" &
+      disown
+    fi
     ;;
 esac
 LAUNCHER
@@ -233,7 +245,7 @@ EOF
       cat >> "$HYPR_CONF" << 'EOF'
 
 # cmd0
-bind = SUPER, 0, exec, cmd0
+bind = SUPER, minus, exec, $BIN_LINK
 windowrule = match:class cmd0, float on
 windowrule = match:class cmd0, pin on
 windowrule = match:class cmd0, decorate off
