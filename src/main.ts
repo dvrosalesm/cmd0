@@ -1341,6 +1341,22 @@ if (!CLI_MODE) {
   }
 }
 
+if (CLI_MODE) {
+  app.whenReady().then(() => {
+    ensureDirs();
+    if (snapIdx !== -1) {
+      const name = process.argv[snapIdx + 1];
+      if (!name) { console.error('Usage: cmd0 --snap <name>'); app.exit(1); return; }
+      console.log(doSnapshot(name));
+    } else if (restoreIdx !== -1) {
+      const name = process.argv[restoreIdx + 1];
+      if (!name) { console.error('Usage: cmd0 --restore <name>'); app.exit(1); return; }
+      console.log(doRestore(name));
+    }
+    app.exit(0);
+  });
+}
+
 if (!CLI_MODE) app.whenReady().then(async () => {
   const iconPath = join(__dirname, '..', 'icon.png');
   if (IS_MAC && existsSync(iconPath)) app.dock?.setIcon(nativeImage.createFromPath(iconPath));

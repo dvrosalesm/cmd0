@@ -16,21 +16,59 @@ npx tsc
 
 echo "-> Creating launcher..."
 if [ "$OS" = "Darwin" ]; then
-  cat > "$CMD0_DIR/cmd0-launcher.sh" << EOF
+  cat > "$CMD0_DIR/cmd0-launcher.sh" << 'LAUNCHER'
 #!/bin/bash
-cd "$CMD0_DIR"
-export PATH="$NODE_BIN:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:\$PATH"
-npx electron . "\$@" &
-disown
-EOF
+cd "CMD0_DIR_PLACEHOLDER"
+export PATH="NODE_BIN_PLACEHOLDER:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:$PATH"
+
+case "$*" in
+  *--help*|-h)
+    echo "Usage: cmd0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  --safe              Start in safe mode (restore base files)"
+    echo "  --snap <name>       Save a snapshot"
+    echo "  --restore <name>    Restore a snapshot"
+    echo "  -h, --help          Show this help"
+    exit 0
+    ;;
+  *--snap*|*--restore*)
+    exec npx electron . "$@"
+    ;;
+  *)
+    npx electron . "$@" &
+    disown
+    ;;
+esac
+LAUNCHER
+  sed -i'' -e "s|CMD0_DIR_PLACEHOLDER|$CMD0_DIR|g" -e "s|NODE_BIN_PLACEHOLDER|$NODE_BIN|g" "$CMD0_DIR/cmd0-launcher.sh"
 else
-  cat > "$CMD0_DIR/cmd0-launcher.sh" << EOF
+  cat > "$CMD0_DIR/cmd0-launcher.sh" << 'LAUNCHER'
 #!/bin/bash
-cd "$CMD0_DIR"
-export PATH="$NODE_BIN:\$PATH"
-npx electron . "\$@" &
-disown
-EOF
+cd "CMD0_DIR_PLACEHOLDER"
+export PATH="NODE_BIN_PLACEHOLDER:$PATH"
+
+case "$*" in
+  *--help*|-h)
+    echo "Usage: cmd0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  --safe              Start in safe mode (restore base files)"
+    echo "  --snap <name>       Save a snapshot"
+    echo "  --restore <name>    Restore a snapshot"
+    echo "  -h, --help          Show this help"
+    exit 0
+    ;;
+  *--snap*|*--restore*)
+    exec npx electron . "$@"
+    ;;
+  *)
+    npx electron . "$@" &
+    disown
+    ;;
+esac
+LAUNCHER
+  sed -i'' -e "s|CMD0_DIR_PLACEHOLDER|$CMD0_DIR|g" -e "s|NODE_BIN_PLACEHOLDER|$NODE_BIN|g" "$CMD0_DIR/cmd0-launcher.sh"
 fi
 chmod +x "$CMD0_DIR/cmd0-launcher.sh"
 
