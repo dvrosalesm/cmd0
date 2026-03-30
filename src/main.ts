@@ -1390,13 +1390,23 @@ if (!CLI_MODE) app.whenReady().then(async () => {
   if (key) {
     try {
       await initAgent(key, cfg.model || undefined);
+      win?.webContents.once('did-finish-load', () => {
+        win!.webContents.send('agent:ready');
+      });
     } catch (e) {
       console.error('[cmd0] Init failed, requesting new key:', e);
       // Saved key didn't work — fall back to onboarding
       win?.webContents.once('did-finish-load', () => {
+        win!.show();
         win!.webContents.send('agent:need-key');
       });
     }
+  } else {
+    // No key in config — show window and ask for one
+    win?.webContents.once('did-finish-load', () => {
+      win!.show();
+      win!.webContents.send('agent:need-key');
+    });
   }
 });
 
