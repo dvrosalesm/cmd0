@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="A desktop AI agent that lives in your menubar. Press Cmd+0 to summon it.">
+  <meta name="description" content="A desktop AI agent that lives in your menubar. Summon it with a keystroke.">
   <meta property="og:title" content="cmd0 — Desktop AI Agent">
-  <meta property="og:description" content="A desktop AI agent that lives in your menubar. Press Cmd+0 to summon it.">
+  <meta property="og:description" content="A desktop AI agent that lives in your menubar. Summon it with a keystroke.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#0a0a0c">
@@ -351,7 +351,7 @@
         <div class="logo-icon">⌘0</div>
       </div>
       <h1>cmd0</h1>
-      <p class="tagline">A desktop AI agent that lives in your menubar. Trigger with <span class="key">⌘0</span>. Ask it anything.</p>
+      <p class="tagline">A desktop AI agent that lives on your screen. Trigger with <span class="key">⌘0</span> or <span class="key">Super+-</span>. Ask it anything.</p>
       <div>
         <a href="#install" class="cta">Install</a>
         <a href="https://github.com/dvrosalesm/cmd0" class="cta cta-secondary">GitHub →</a>
@@ -385,7 +385,7 @@
         </div>
         <div class="feature">
           <h3>💻 System Access</h3>
-          <p>Run bash commands, read/write files, send macOS notifications.</p>
+          <p>Run bash commands, read/write files, send desktop notifications.</p>
         </div>
         <div class="feature">
           <h3>🖼️ Screenshots</h3>
@@ -405,7 +405,7 @@
         </div>
         <div class="feature">
           <h3>🔐 Safe Mode</h3>
-          <p>Start with <code>--safe</code> to run without self-modification or file access.</p>
+          <p>Start with <code>--safe</code> to restore base files and disable self-modification.</p>
         </div>
       </div>
     </section>
@@ -413,7 +413,7 @@
     <section>
       <h2>How it works</h2>
       <div class="demo">
-        <div class="demo-line"><span class="prompt">$</span> <span class="cmd">Press ⌘0</span></div>
+        <div class="demo-line"><span class="prompt">$</span> <span class="cmd">Press ⌘0 / Super+-</span></div>
         <div class="demo-line"><span class="response">→ Floating chat appears</span></div>
         <div class="demo-line"><span class="prompt">$</span> <span>"Search for the latest AI news"</span></div>
         <div class="demo-line"><span class="response">→ web_search: "latest AI news"</span></div>
@@ -441,7 +441,7 @@ cd cmd0
         </div>
         <div class="install-step">
           <span class="step-num">3</span>
-          <div class="step-content">Adds <strong>Cmd+0</strong> global shortcut</div>
+          <div class="step-content">Registers shortcut — <strong>Cmd+0</strong> (macOS) or <strong>Super+-</strong> (Linux/Hyprland)</div>
         </div>
         <div class="install-step">
           <span class="step-num">4</span>
@@ -497,7 +497,7 @@ cd cmd0
     
     <footer>
       <p>Built with <a href="https://github.com/mario-zechner/pi-coding-agent">pi-coding-agent</a></p>
-      <p style="margin-top: 8px; font-size: 12px;">macOS only • MIT License</p>
+      <p style="margin-top: 8px; font-size: 12px;">macOS &amp; Linux • MIT License</p>
     </footer>
   </div>
 </body>
