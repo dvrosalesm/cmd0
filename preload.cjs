@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('cmd0', {
   validateKey: (key) => ipcRenderer.invoke('agent:validate-key', key),
   setKey: (key, model) => ipcRenderer.send('agent:set-key', key, model),
   prompt: (text) => ipcRenderer.send('agent:prompt', text),
+  promptAnima: (text) => ipcRenderer.send('agent:prompt-anima', text),
   promptWithImage: (text, imageBase64) => ipcRenderer.send('agent:prompt-image', text, imageBase64),
   onEvent: (cb) => ipcRenderer.on('agent:event', (_e, data) => cb(data)),
   onDone: (cb) => ipcRenderer.on('agent:done', cb),

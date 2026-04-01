@@ -376,6 +376,10 @@ function sendError(err: unknown) {
   win.webContents.send('agent:done');
 }
 
+// When true, anima_write and anima_reload are allowed.
+// Only set during /0 prompts; cleared when the prompt finishes.
+let animaUnlocked = false;
+
 async function runPrompt(text: string, img?: string) {
   if (!session) throw new Error('No session.');
   if (sessionBusy) throw new Error('Agent busy.');
@@ -388,7 +392,13 @@ async function runPrompt(text: string, img?: string) {
     }
   } finally {
     sessionBusy = false;
+    animaUnlocked = false;
   }
+}
+
+async function runAnimaPrompt(text: string) {
+  animaUnlocked = true;
+  return runPrompt(text);
 }
 
 // --- Snapshot helpers ---
@@ -700,10 +710,11 @@ function createTools(): ToolDefinition[] {
     },
     {
       name: 'anima_write', label: 'Write File',
-      description: 'Write a source file. Call anima_reload after.',
-      promptSnippet: 'anima_write — write a source file, call anima_reload after',
+      description: 'Write a source file. Call anima_reload after. Only available during /0 self-modification.',
+      promptSnippet: 'anima_write — write a source file, call anima_reload after (requires /0)',
       parameters: Type.Object({ filename: Type.String(), content: Type.String() }),
       async execute(_id: string, p: { filename: string; content: string }) {
+        if (!animaUnlocked) return text('anima_write is only available during /0 self-modification.');
         try {
           writeFileSync(resolveAnimaPath(p.filename), p.content, 'utf-8');
           dirtyAnimaFiles.add(p.filename);
@@ -715,10 +726,11 @@ function createTools(): ToolDefinition[] {
     },
     {
       name: 'anima_reload', label: 'Reload',
-      description: 'Auto-snapshots, copies only changed files to project, recompiles, restarts.',
-      promptSnippet: 'anima_reload — snapshot, recompile, and restart',
+      description: 'Auto-snapshots, copies only changed files to project, recompiles, restarts. Only available during /0 self-modification.',
+      promptSnippet: 'anima_reload — snapshot, recompile, and restart (requires /0)',
       parameters: Type.Object({}),
       async execute() {
+        if (!animaUnlocked) return text('anima_reload is only available during /0 self-modification.');
         try {
           doSnapshot(`auto-${Date.now()}`);
           syncDirtyToProject();
@@ -1219,6 +1231,12 @@ ipcMain.on('agent:prompt', async (_e, text: string) => {
   catch (e) { sendError(e); }
 });
 
+ipcMain.on('agent:prompt-anima', async (_e, text: string) => {
+  if (!session || !win) return;
+  try { await runAnimaPrompt(reqStr(text, 'Prompt', MAX_PROMPT)); }
+  catch (e) { sendError(e); }
+});
+
 ipcMain.on('agent:prompt-image', async (_e, text: string, img: string) => {
   if (!session || !win) return;
   try { await runPrompt(reqStr(text, 'Prompt', MAX_PROMPT), reqImg(img)); }
@@ -1236,6 +1254,7 @@ ipcMain.on('agent:cancel', async () => {
   if (!session) return;
   try { await session.abort(); } catch (e) { console.error('[cmd0] Abort:', e); }
   sessionBusy = false;
+  animaUnlocked = false;
   if (win) win.webContents.send('agent:done');
 });
 

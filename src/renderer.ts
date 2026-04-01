@@ -162,7 +162,7 @@ input.addEventListener('keydown', (e) => {
     const instr = text.slice(2).trim();
     if (!instr) { showBubble('Usage: /0 <what to change>'); return; }
     busy = true; logParts = []; currentText = ''; currentThinking = ''; isThinking = false; showActivity(); input.placeholder = '...';
-    window.cmd0.prompt([
+    window.cmd0.promptAnima([
       'You are modifying your own source code. Files live in ~/.cmd0/anima.',
       'Use anima_list, anima_read, anima_write. After changes call anima_reload.',
       'If you need npm packages, use bash to run npm install in the project dir.',

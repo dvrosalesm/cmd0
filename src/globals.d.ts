@@ -16,6 +16,7 @@ interface Window {
     validateKey: (key: string) => Promise<{ ok: boolean; error?: string; provider?: string }>;
     setKey: (key: string, model?: string) => void;
     prompt: (text: string) => void;
+    promptAnima: (text: string) => void;
     promptWithImage: (text: string, imageBase64: string) => void;
     onEvent: (cb: (event: AgentEvent) => void) => void;
     onDone: (cb: () => void) => void;
