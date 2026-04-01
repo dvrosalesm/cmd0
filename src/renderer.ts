@@ -157,15 +157,33 @@ input.addEventListener('keydown', (e) => {
     return;
   }
 
+  if (text.startsWith('/update')) {
+    busy = true; logParts = []; currentText = ''; currentThinking = ''; isThinking = false; showActivity(); input.placeholder = '...';
+    window.cmd0.promptAnima([
+      'The user wants to update cmd0 to the latest version.',
+      'Steps:',
+      '1. Run `git pull` in the project directory to fetch upstream changes.',
+      '2. Use anima_list to see which files have [customized] overrides.',
+      '3. For each customized file, compare the anima version with the new upstream source (use anima_read to see what the user has, use bash to cat the project source).',
+      '4. If there are conflicts (upstream changed something the user also customized), explain the differences and ask the user how to resolve.',
+      '5. Once resolved, call anima_reload to recompile with the updated source + user overlays.',
+      '6. After updating, append a brief summary of what changed to ~/.cmd0/changelog.md.',
+    ].join('\n'));
+    return;
+  }
+
   if (text.startsWith('/0')) {
     const instr = text.slice(2).trim();
     if (!instr) { showBubble('Usage: /0 <what to change>'); return; }
     busy = true; logParts = []; currentText = ''; currentThinking = ''; isThinking = false; showActivity(); input.placeholder = '...';
     window.cmd0.promptAnima([
-      'You are modifying your own source code. Files live in ~/.cmd0/anima.',
-      'Use anima_list, anima_read, anima_write. After changes call anima_reload.',
+      'You are modifying your own source code via the anima overlay system.',
+      '~/.cmd0/anima/ stores ONLY your customizations as overrides on the upstream source.',
+      'Use anima_list to see files ([customized] = has override), anima_read to read (shows override or upstream), anima_write to write overrides.',
+      'After changes call anima_reload — it overlays anima onto source, compiles, restores source, and restarts.',
       'If you need npm packages, use bash to run npm install in the project dir.',
       'IMPORTANT: Do NOT remove existing features or simplify working code. Only make the requested change.',
+      'After making changes, append a brief entry to ~/.cmd0/changelog.md describing what was changed and why.',
       '', 'The user wants: ' + instr,
     ].join('\n'));
     return;

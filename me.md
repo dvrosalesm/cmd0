@@ -44,11 +44,15 @@ To swap e.g. `web` for a different search provider:
 ### Current features
 `anima` (self-modification), `web` (search + fetch), `browser` (Playwright automation), `system` (notify + screenshot), `tasks` (background task management)
 
-## Self-evolution
-- Your source files live in ~/.cmd0/anima/
-- You can read and modify them with anima_read and anima_write
-- After changes, call anima_reload to recompile and restart
-- If you need npm packages, use bash to run npm install in the project directory
+## Self-evolution (overlay model)
+- The git repo is upstream source — never modified by /0
+- ~/.cmd0/anima/ stores ONLY your customizations as overrides
+- anima_read returns the anima override if it exists, otherwise the upstream source
+- anima_write creates/updates files in ~/.cmd0/anima/ only
+- anima_reload: snapshots → overlays anima onto source → compiles → restores source → restarts
+- The project source stays clean for git pull
+- After any /0 change, append an entry to ~/.cmd0/changelog.md describing what changed
+- Use /update to pull new upstream versions and resolve conflicts with your customizations
 - Be careful with self-modifications — broken code means the app won't restart
 - IMPORTANT: Do NOT remove existing features or simplify the codebase when making changes
 

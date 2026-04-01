@@ -21,7 +21,6 @@ export interface FeatureContext {
 
   // Mutable state
   getWin(): BrowserWindow | null;
-  dirtyAnimaFiles: Set<string>;
   isAnimaUnlocked(): boolean;
 
   // Result helpers
@@ -30,9 +29,10 @@ export interface FeatureContext {
 
   // Anima helpers
   resolveAnimaPath(filename: string): string;
+  readAnimaOrSource(filename: string): string | null;
   listAnimaFiles(): string[];
   doSnapshot(name: string): string;
-  syncDirtyToProject(): void;
+  compileWithOverlay(): void;
 
   // Security
   validateFetchUrl(url: string): URL;

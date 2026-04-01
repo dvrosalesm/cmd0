@@ -122,18 +122,10 @@ const ANIMA_FILES = [
   { src: 'me.md', dest: 'me.md' },
 ];
 
-function syncAnimaFromProject() {
-  for (const f of ANIMA_FILES) {
-    const d = join(ANIMA_DIR, f.dest);
-    // Ensure parent dir exists for nested files (e.g. features/)
-    const parentDir = dirname(d);
-    if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
-    if (!existsSync(d)) {
-      const s = join(PROJECT_DIR, f.src);
-      if (existsSync(s)) copyFileSync(s, d);
-    }
-  }
-}
+// --- Anima overlay system ---
+// Anima (~/.cmd0/anima/) stores ONLY user customizations made via /0.
+// Project source (git repo) is the base. At compile time, anima files are
+// overlaid onto source temporarily, compiled, then source is restored.
 
 function backupBaseFiles() {
   mkdirSync(BACKUP_DIR, { recursive: true });
@@ -156,44 +148,58 @@ function restoreBaseFiles() {
   }
 }
 
-function syncProjectFromAnima() {
+/** Overlay anima customizations onto project source, compile, restore source. */
+function compileWithOverlay() {
   backupBaseFiles();
-  for (const f of ANIMA_FILES) {
-    const s = join(ANIMA_DIR, f.dest);
-    const d = join(PROJECT_DIR, f.src);
-    const parentDir = dirname(d);
-    if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
-    if (existsSync(s)) copyFileSync(s, d);
+  try {
+    // Overlay: copy anima files on top of project source
+    for (const f of ANIMA_FILES) {
+      const a = join(ANIMA_DIR, f.dest);
+      if (existsSync(a)) {
+        const d = join(PROJECT_DIR, f.src);
+        const parentDir = dirname(d);
+        if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
+        copyFileSync(a, d);
+      }
+    }
+    // Compile
+    execSync(TSC, { cwd: PROJECT_DIR, timeout: 30000 });
+  } finally {
+    // Always restore source so git stays clean
+    restoreBaseFiles();
   }
+}
+
+/** Read a file: anima override first, then project source fallback. */
+function readAnimaOrSource(filename: string): string | null {
+  const animaPath = resolveAnimaPath(filename);
+  if (existsSync(animaPath)) return readFileSync(animaPath, 'utf-8');
+  const mapping = ANIMA_FILES.find(f => f.dest === filename);
+  if (mapping) {
+    const srcPath = join(PROJECT_DIR, mapping.src);
+    if (existsSync(srcPath)) return readFileSync(srcPath, 'utf-8');
+  }
+  return null;
 }
 
 function listAnimaFiles(): string[] {
-  if (!existsSync(ANIMA_DIR)) return [];
-  const result: string[] = [];
-  function walk(dir: string, prefix: string) {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name.startsWith('.')) continue;
-      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
-      if (entry.isDirectory()) walk(join(dir, entry.name), rel);
-      else result.push(rel);
+  const overrides = new Set<string>();
+  if (existsSync(ANIMA_DIR)) {
+    function walk(dir: string, prefix: string) {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name.startsWith('.')) continue;
+        const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) walk(join(dir, entry.name), rel);
+        else overrides.add(rel);
+      }
     }
+    walk(ANIMA_DIR, '');
   }
-  walk(ANIMA_DIR, '');
-  return result;
-}
-
-const dirtyAnimaFiles = new Set<string>();
-
-function syncDirtyToProject() {
-  backupBaseFiles();
-  for (const filename of dirtyAnimaFiles) {
-    const mapping = ANIMA_FILES.find(f => f.dest === filename);
-    if (mapping) {
-      const src = join(ANIMA_DIR, mapping.dest);
-      const dest = join(PROJECT_DIR, mapping.src);
-      if (existsSync(src)) copyFileSync(src, dest);
-    }
+  const lines: string[] = [];
+  for (const f of ANIMA_FILES) {
+    lines.push(overrides.has(f.dest) ? `${f.dest} [customized]` : f.dest);
   }
+  return lines;
 }
 
 function resolveAnimaPath(filename: string): string {
@@ -275,11 +281,25 @@ function findMdFiles(dir: string): string[] {
 }
 
 function loadAnimaContext(): string {
-  const files = findMdFiles(ANIMA_DIR);
-  if (!files.length) return '';
-  const secs = files.map(fp => {
+  // Collect .md files: anima overrides first, then project source fallbacks
+  const mdFiles = new Map<string, string>(); // relative path → absolute path
+  // Project source .md files (base)
+  for (const f of ANIMA_FILES) {
+    if (f.dest.endsWith('.md')) {
+      const srcPath = join(PROJECT_DIR, f.src);
+      if (existsSync(srcPath)) mdFiles.set(f.dest, srcPath);
+    }
+  }
+  // Anima overrides (take precedence)
+  const animaMds = existsSync(ANIMA_DIR) ? findMdFiles(ANIMA_DIR) : [];
+  for (const fp of animaMds) {
+    const rel = fp.slice(ANIMA_DIR.length + 1);
+    mdFiles.set(rel, fp);
+  }
+  if (!mdFiles.size) return '';
+  const secs = [...mdFiles.entries()].map(([rel, fp]) => {
     const c = readFileSync(fp, 'utf-8').trim();
-    return c ? `--- ${fp.slice(ANIMA_DIR.length + 1)} ---\n${c}` : '';
+    return c ? `--- ${rel} ---\n${c}` : '';
   }).filter(Boolean);
   return secs.length ? '\n\n# Context\n\n' + secs.join('\n\n') : '';
 }
@@ -468,9 +488,8 @@ function doRestore(name: string): string {
     saveConfig(snap);
   }
   if (existsSync(join(dir, 'tasks.md'))) copyFileSync(join(dir, 'tasks.md'), TASKS_FILE);
-  syncProjectFromAnima();
   try {
-    execSync(TSC, { cwd: PROJECT_DIR, timeout: 30000 });
+    compileWithOverlay();
     setTimeout(() => { app.relaunch(); app.exit(0); }, 500);
     return `Restored "${name}". Restarting...`;
   } catch {
@@ -494,10 +513,9 @@ function buildFeatureContext(): FeatureContext {
     IS_MAC, IS_LINUX,
     PROJECT_DIR, CMD0_DIR, ANIMA_DIR, DATA_DIR, TASKS_FILE, TSC,
     getWin: () => win,
-    dirtyAnimaFiles,
     isAnimaUnlocked: () => animaUnlocked,
     text, image,
-    resolveAnimaPath, listAnimaFiles, doSnapshot, syncDirtyToProject,
+    resolveAnimaPath, readAnimaOrSource, listAnimaFiles, doSnapshot, compileWithOverlay,
     validateFetchUrl,
     loadTasks, addTask, completeTask, removeTask,
     reqStr, MAX_TASK,
@@ -608,6 +626,44 @@ async function initAgent(key: string, modelId?: string) {
     agentDir,
     settingsManager,
     appendSystemPrompt: animaCtx || undefined,
+    extensionFactories: [(pi) => {
+      // Map project source paths to anima dest names for quick lookup
+      const srcToAnima = new Map(ANIMA_FILES.map(f => [resolve(PROJECT_DIR, f.src), f.dest]));
+
+      pi.on('tool_call', async (event) => {
+        if (event.toolName !== 'write' && event.toolName !== 'edit' && event.toolName !== 'bash') return undefined;
+
+        if (event.toolName === 'write' || event.toolName === 'edit') {
+          const p = resolve(String(event.input.path));
+
+          if (animaUnlocked) {
+            // During /0: redirect project source edits → anima overlay
+            const animaDest = srcToAnima.get(p);
+            if (animaDest) {
+              const animaPath = join(ANIMA_DIR, animaDest);
+              const parentDir = dirname(animaPath);
+              if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
+              event.input.path = animaPath;
+            }
+            return undefined;
+          }
+
+          // Outside /0: block writes to anima dir
+          if (p.startsWith(ANIMA_DIR + sep) || p === ANIMA_DIR) {
+            return { block: true, reason: 'Self-modification requires /0. Use /0 <instruction> to modify cmd0.' };
+          }
+        }
+
+        if (event.toolName === 'bash' && !animaUnlocked) {
+          const cmd = String(event.input.command || '');
+          if (cmd.includes(ANIMA_DIR) || cmd.includes('.cmd0/anima')) {
+            return { block: true, reason: 'Self-modification requires /0. Use /0 <instruction> to modify cmd0.' };
+          }
+        }
+
+        return undefined;
+      });
+    }],
   });
   await rl.reload();
 
@@ -947,7 +1003,9 @@ if (!CLI_MODE) app.whenReady().then(async () => {
     try { execSync(TSC, { cwd: PROJECT_DIR, timeout: 30000 }); }
     catch (e) { console.error('[cmd0] Safe recompile:', e); }
   } else {
-    syncAnimaFromProject();
+    // Compile with anima overlay so user customizations take effect
+    try { compileWithOverlay(); }
+    catch (e) { console.error('[cmd0] Overlay compile:', e); }
   }
 
   createWindow();
