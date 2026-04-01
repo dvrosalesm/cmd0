@@ -242,7 +242,7 @@ EOF
   if [ -f "$HYPR_CONF" ]; then
     if ! grep -q 'cmd0' "$HYPR_CONF"; then
       echo "-> Adding Hyprland keybind and window rules..."
-      cat >> "$HYPR_CONF" << 'EOF'
+      cat >> "$HYPR_CONF" << EOF
 
 # cmd0
 bind = SUPER, minus, exec, $BIN_LINK

@@ -53,7 +53,7 @@ else
 
   HYPR_CONF="$HOME/.config/hypr/hyprland.conf"
   if [ -f "$HYPR_CONF" ] && grep -q 'cmd0' "$HYPR_CONF"; then
-    sed -i '/^# cmd0$/d; /cmd0/d' "$HYPR_CONF"
+    sed -i '/^# cmd0$/d; /cmd0/d; /\$BIN_LINK/d' "$HYPR_CONF"
     # clean up leftover blank lines
     sed -i '/^$/N;/^\n$/d' "$HYPR_CONF"
     echo "-> Removed Hyprland config entries"
