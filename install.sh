@@ -47,7 +47,7 @@ case "$*" in
     ;;
 esac
 LAUNCHER
-  sed -i'' -e "s|CMD0_DIR_PLACEHOLDER|$CMD0_DIR|g" -e "s|NODE_BIN_PLACEHOLDER|$NODE_BIN|g" "$CMD0_DIR/cmd0-launcher.sh"
+  sed -i '' "s|CMD0_DIR_PLACEHOLDER|$CMD0_DIR|g;s|NODE_BIN_PLACEHOLDER|$NODE_BIN|g" "$CMD0_DIR/cmd0-launcher.sh"
 else
   cat > "$CMD0_DIR/cmd0-launcher.sh" << 'LAUNCHER'
 #!/bin/bash
@@ -80,7 +80,7 @@ case "$*" in
     ;;
 esac
 LAUNCHER
-  sed -i'' -e "s|CMD0_DIR_PLACEHOLDER|$CMD0_DIR|g" -e "s|NODE_BIN_PLACEHOLDER|$NODE_BIN|g" "$CMD0_DIR/cmd0-launcher.sh"
+  sed -i '' "s|CMD0_DIR_PLACEHOLDER|$CMD0_DIR|g;s|NODE_BIN_PLACEHOLDER|$NODE_BIN|g" "$CMD0_DIR/cmd0-launcher.sh"
 fi
 chmod +x "$CMD0_DIR/cmd0-launcher.sh"
 
