@@ -1,0 +1,313 @@
+# cmd0 - Complete Documentation
+
+> A desktop AI agent that lives in your menubar. Summon it with a keystroke to search the web, run commands, automate browsers, and extend with pi extensions.
+
+## Overview
+
+cmd0 is an open-source desktop AI agent built with the [pi-coding-agent](https://github.com/mariozechner/pi-coding-agent) framework. It provides a floating chat interface that can be summoned from anywhere using a global hotkey, giving you instant access to AI-powered tools for web search, browser automation, terminal commands, and more.
+
+## Key Features
+
+### Core Capabilities
+- **Web Search**: DuckDuckGo integration for instant research
+- **Browser Automation**: Playwright-powered Chrome control
+- **System Access**: Execute bash commands, read/write files
+- **Desktop Notifications**: Send native OS notifications
+- **Screenshots**: Capture and attach screen regions
+- **Self-Modification**: Edit source code via `/0` command
+- **Task Scheduling**: Background daemon for recurring tasks
+- **State Management**: Snapshots and restore functionality
+- **Safe Mode**: `--safe` flag for restricted operation
+
+### Extensions
+- **pi-notetaker**: Meeting transcription and AI summaries using local Whisper
+
+## Installation
+
+### Prerequisites
+- macOS or Linux
+- Node.js 18+
+- npm or yarn
+- Git
+
+### Quick Install
+
+```bash
+# Clone the repository
+git clone https://github.com/dvrosalesm/cmd0.git
+cd cmd0
+
+# Run the installer
+./install.sh
+```
+
+The installer will:
+1. Install npm dependencies
+2. Compile TypeScript
+3. Register global hotkey
+4. Launch the agent
+
+### Manual Installation
+
+```bash
+# Install dependencies
+npm install
+
+# Build the project
+npm run build
+
+# Or run in development mode
+npm run dev
+```
+
+## Configuration
+
+### API Keys
+
+cmd0 requires an API key from either OpenRouter or Fireworks AI:
+
+**OpenRouter** (keys start with `sk-or-...`)
+- Default model: `minimax/minimax-m2.7`
+- Supports Claude, GPT-4, Llama, and more
+
+**Fireworks AI** (keys start with `fw_...`)
+- Default model: `accounts/fireworks/routers/kimi-k2p5-turbo`
+- Fast inference with Kimi and Llama models
+
+On first launch, cmd0 will prompt for your API key. Configuration is stored at `~/.cmd0/data/config.json`.
+
+### Environment Variables
+
+```bash
+# Optional: Pre-configure API key
+export OPENROUTER_API_KEY=sk-or-...
+export FIREWORKS_API_KEY=fw_...
+```
+
+## Usage
+
+### Basic Commands
+
+| Command | Description |
+|---------|-------------|
+| `Cmd+0` / `Super+0` | Summon the agent |
+| `/0 <instruction>` | Self-modification mode |
+| `/cancel` | Stop current operation |
+| `/tasks` | Manage background tasks |
+| `/snap <name>` | Save state snapshot |
+| `/restore <name>` | Restore from snapshot |
+| `/safe` | Enter safe mode |
+
+### Example Interactions
+
+```
+You: Search for Python async best practices
+cmd0: [Performs DuckDuckGo search and summarizes results]
+
+You: /0 add a dark theme toggle
+ cmd0: [Reads source, adds theme code, reloads]
+
+You: Take a screenshot of the terminal
+ cmd0: [Captures screen region, attaches to chat]
+```
+
+## Architecture
+
+### Project Structure
+
+```
+cmd0/
+├── src/
+│   ├── main.ts           # Electron main process
+│   ├── renderer.ts       # UI logic
+│   ├── style.css         # Styling
+│   └── features/         # Tool modules
+│       ├── anima.ts      # Self-modification
+│       ├── web.ts        # Web search/fetch
+│       ├── browser.ts    # Playwright automation
+│       ├── system.ts     # Notifications/screenshots
+│       └── tasks.ts      # Background tasks
+├── docs/                 # Documentation
+│   ├── index.html        # Landing page
+│   ├── llms.txt         # LLM overview
+│   └── llms-full.txt    # This file
+└── package.json
+```
+
+### Self-Modification System
+
+The `anima` feature enables cmd0 to modify its own source code:
+
+1. Source files live in `~/.cmd0/anima/`
+2. User issues `/0` command with instructions
+3. LLM reads relevant files via `anima_read`
+4. LLM proposes changes via `anima_write`
+5. `anima_reload` syncs, recompiles, and restarts
+
+This creates a feedback loop where the agent can evolve based on user needs.
+
+### Data Directory
+
+```
+~/.cmd0/
+├── anima/              # Live source code
+├── data/
+│   ├── config.json    # Settings and API keys
+│   └── meetings/      # pi-notetaker recordings
+├── snapshots/         # Saved states
+└── tasks.md          # Background tasks
+```
+
+## pi-notetaker Extension
+
+### Overview
+
+pi-notetaker is a pi extension for meeting transcription and AI-powered summaries. It records audio locally, transcribes using Whisper, and generates structured summaries using the active LLM.
+
+### Installation
+
+```bash
+# Copy extension to pi extensions directory
+cp -r pi-notetaker ~/.pi/agent/extensions/
+
+# Or for cmd0, place in project and reference
+```
+
+### Setup
+
+```
+/meeting setup
+```
+
+This installs:
+- sox (audio recording)
+- whisper-cpp (transcription)
+- Downloads base.en model (~142MB)
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/meeting start [name]` | Begin recording |
+| `/meeting stop` | Stop and process |
+| `/meeting list` | View past meetings |
+| `/meeting view <id>` | Read summary |
+| `/meeting transcript <id>` | Raw transcript |
+
+### Privacy
+
+All processing is local:
+- Audio recorded to local file
+- Whisper runs on-device
+- No cloud transcription services
+- No data leaves your machine
+
+## Security & Safety
+
+### Safe Mode
+
+Launch with `--safe` to:
+- Disable self-modification
+- Restore base source files
+- Prevent accidental changes
+
+### Snapshots
+
+Before major changes:
+```
+/snap before-experiment
+# ... make changes ...
+/restore before-experiment  # If needed
+```
+
+### Best Practices
+
+1. Create snapshots before `/0` modifications
+2. Review proposed code changes
+3. Test in safe mode if unsure
+4. Keep backups of working states
+
+## Development
+
+### Building
+
+```bash
+# TypeScript compilation
+npx tsc
+
+# Or with watch mode
+npx tsc --watch
+```
+
+### Adding Features
+
+1. Create feature in `src/features/my-feature.ts`
+2. Export a `Feature` object with `name`, `description`, `createTools`
+3. Import and add to `ALL_FEATURES` in `src/features/index.ts`
+4. Test and reload
+
+### Debugging
+
+```bash
+# Enable Electron debugging
+npm run dev -- --inspect
+
+# View logs
+tail -f ~/.cmd0/logs/app.log
+```
+
+## Troubleshooting
+
+### Hotkey Not Working (Linux)
+
+On Wayland/Hyprland, use the window rule:
+```
+bind = SUPER, 0, exec, cmd0
+```
+
+### Permission Errors
+
+```bash
+# Fix permissions
+chmod +x ./install.sh
+chmod +x ./cmd0-launcher.sh
+```
+
+### Rebuild After Modification Failures
+
+```bash
+# If anima_reload fails
+cd ~/.cmd0/project
+npm run build
+```
+
+## Contributing
+
+We welcome contributions! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+See [GitHub Issues](https://github.com/dvrosalesm/cmd0/issues) for ideas.
+
+## Resources
+
+- **Website**: https://dvrosalesm.github.io/cmd0/
+- **Repository**: https://github.com/dvrosalesm/cmd0
+- **pi-notetaker**: https://github.com/dvrosalesm/pi-notetaker
+- **Framework**: https://github.com/mariozechner/pi-coding-agent
+- **Issues**: https://github.com/dvrosalesm/cmd0/issues
+
+## License
+
+MIT License - see [LICENSE](https://github.com/dvrosalesm/cmd0/blob/main/LICENSE) for details.
+
+## Author
+
+Diego Rosales (rdiegovladimir@gmail.com)
+
+---
+
+*Built with [pi-coding-agent](https://github.com/mariozechner/pi-coding-agent)*

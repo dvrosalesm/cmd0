@@ -3,14 +3,158 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="A desktop AI agent that lives in your menubar. Summon it with a keystroke. Search the web, run commands, automate browsers, and extend with pi extensions like pi-notetaker.">
-  <meta property="og:title" content="cmd0 — Desktop AI Agent">
-  <meta property="og:description" content="A desktop AI agent that lives in your menubar. Summon it with a keystroke. Search the web, run commands, automate browsers, and extend with pi extensions like pi-notetaker.">
+  <meta name="description" content="cmd0 is a desktop AI agent that lives in your menubar. Summon it with Cmd+0 to search the web, run commands, automate browsers, and extend with pi extensions. Open source, self-modifying, built with pi-coding-agent.">
+  <meta name="keywords" content="AI agent, desktop AI, menubar AI, cmd0, pi-coding-agent, web search, browser automation, terminal commands, meeting notes, pi-notetaker, open source AI, local AI, Whisper transcription">
+  <meta name="author" content="Diego Rosales">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <link rel="canonical" href="https://dvrosalesm.github.io/cmd0/">
+  <link rel="alternate" type="text/plain" href="https://dvrosalesm.github.io/cmd0/llms.txt" title="LLM-Readable Version">
+  <link rel="sitemap" type="application/xml" href="https://dvrosalesm.github.io/cmd0/sitemap.xml">
+  
+  <!-- Open Graph -->
+  <meta property="og:title" content="cmd0 — Desktop AI Agent for macOS & Linux">
+  <meta property="og:description" content="A desktop AI agent that lives in your menubar. Search the web, run commands, automate browsers, and extend with pi extensions. Open source and self-modifying.">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://dvrosalesm.github.io/cmd0/">
+  <meta property="og:site_name" content="cmd0">
+  <meta property="og:image" content="https://dvrosalesm.github.io/cmd0/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="cmd0 - Desktop AI Agent">
+  
+  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="cmd0 — Desktop AI Agent">
+  <meta name="twitter:description" content="Summon an AI agent with Cmd+0. Search, automate, and extend. Open source.">
+  <meta name="twitter:image" content="https://dvrosalesm.github.io/cmd0/og-image.png">
+  
   <meta name="theme-color" content="#000000">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23000'/%3E%3Ctext x='50' y='68' font-size='55' text-anchor='middle' fill='white' font-family='system-ui'%3E⌘%3C/text%3E%3C/svg%3E">
-  <title>cmd0 — Desktop AI Agent</title>
+  <title>cmd0 — Desktop AI Agent for macOS & Linux | Open Source</title>
+  
+  <!-- Schema.org JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "cmd0",
+        "applicationCategory": "DeveloperApplication",
+        "applicationSubCategory": "AIApplication",
+        "operatingSystem": ["macOS", "Linux"],
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "license": "https://github.com/dvrosalesm/cmd0/blob/main/LICENSE",
+        "sourceOrganization": {
+          "@type": "Organization",
+          "name": "cmd0",
+          "url": "https://dvrosalesm.github.io/cmd0/"
+        },
+        "softwareVersion": "1.0.0",
+        "downloadUrl": "https://github.com/dvrosalesm/cmd0",
+        "featureList": [
+          "Web search via DuckDuckGo",
+          "Browser automation with Playwright",
+          "Terminal command execution",
+          "Desktop notifications",
+          "Screenshot capture",
+          "Self-modification capabilities",
+          "Background task scheduling",
+          "State snapshots and restore",
+          "Extension system with pi-notetaker"
+        ],
+        "programmingLanguage": "TypeScript",
+        "softwareHelp": {
+          "@type": "CreativeWork",
+          "url": "https://github.com/dvrosalesm/cmd0/blob/main/README.md"
+        }
+      },
+      {
+        "@type": "Organization",
+        "name": "cmd0",
+        "url": "https://dvrosalesm.github.io/cmd0/",
+        "logo": "https://dvrosalesm.github.io/cmd0/favicon.svg",
+        "sameAs": [
+          "https://github.com/dvrosalesm/cmd0",
+          "https://github.com/dvrosalesm/pi-notetaker"
+        ],
+        "founder": {
+          "@type": "Person",
+          "name": "Diego Rosales"
+        }
+      },
+      {
+        "@type": "WebSite",
+        "url": "https://dvrosalesm.github.io/cmd0/",
+        "name": "cmd0 — Desktop AI Agent",
+        "description": "A desktop AI agent that lives in your menubar. Summon it with a keystroke to search the web, run commands, and automate your workflow.",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://dvrosalesm.github.io/cmd0/?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is cmd0 and how does it work?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "cmd0 is a desktop AI agent built with the pi-coding-agent framework. It lives in your system tray/menubar and can be summoned with a global hotkey (Cmd+0 on macOS, Super+0 on Linux). It can search the web, run terminal commands, automate browsers, send notifications, and even modify its own source code."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is cmd0 free and open source?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes, cmd0 is completely free and open source under the MIT License. You can view, modify, and distribute the source code. However, you'll need your own API key for the AI provider (OpenRouter or Fireworks AI) as those services are not free."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Which platforms does cmd0 support?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "cmd0 currently supports macOS and Linux (including Wayland/Hyprland). Windows is not yet supported. On macOS, use Cmd+0 to summon. On Linux, use Super+0 (or Cmd+0 on some setups)."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is the pi-notetaker extension?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "pi-notetaker is a pi extension for cmd0 that records meetings, transcribes audio locally using Whisper, and generates AI summaries. Everything happens offline on your machine — no audio data leaves your computer. Perfect for private meeting notes."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How does the self-modification feature work?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Using the /0 command, you can instruct cmd0 to read its own source files (stored in ~/.cmd0/anima/), make modifications, and reload itself. This allows you to add features, change the UI, fix bugs, or customize behavior without manually editing files. Changes are synced back to the project directory and recompiled."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is it safe to let an AI modify its own code?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "cmd0 includes safety features: snapshots (/snap and /restore) let you save and restore complete states, and safe mode (--safe flag or /safe command) restores base files and disables self-modification. If something breaks, you can always restore from a snapshot or the base backup."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+  
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-MME5QM7FNC"></script>
   <script>
@@ -856,6 +1000,7 @@
         <a href="#features">Features</a>
         <a href="#extensions">Extensions</a>
         <a href="#workflow">How it works</a>
+        <a href="#faq">FAQ</a>
         <a href="#install">Install</a>
         <a href="https://github.com/dvrosalesm/cmd0" target="_blank">GitHub</a>
         <a href="#install" class="nav-cta">Get Started</a>
@@ -1275,6 +1420,57 @@
       </div>
     </section>
     
+    <section id="faq">
+      <div class="section-header">
+        <h2>FAQ</h2>
+        <p>Common questions</p>
+      </div>
+      <div class="faq-container" style="max-width: 800px; margin: 0 auto;">
+        <div class="faq-item" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+          <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+            What is cmd0 and how does it work?
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;"><path d="M6 9l6 6 6-6"/></svg>
+          </h3>
+          <p style="font-size: 15px; color: var(--text-muted); line-height: 1.7;">cmd0 is a desktop AI agent built with the pi-coding-agent framework. It lives in your system tray/menubar and can be summoned with a global hotkey (Cmd+0 on macOS, Super+0 on Linux). It can search the web, run terminal commands, automate browsers, send notifications, and even modify its own source code.</p>
+        </div>
+        <div class="faq-item" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+          <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+            Is cmd0 free and open source?
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;"><path d="M6 9l6 6 6-6"/></svg>
+          </h3>
+          <p style="font-size: 15px; color: var(--text-muted); line-height: 1.7;">Yes, cmd0 is completely free and open source under the MIT License. You can view, modify, and distribute the source code. However, you'll need your own API key for the AI provider (OpenRouter or Fireworks AI) as those services are not free.</p>
+        </div>
+        <div class="faq-item" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+          <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+            Which platforms does cmd0 support?
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;"><path d="M6 9l6 6 6-6"/></svg>
+          </h3>
+          <p style="font-size: 15px; color: var(--text-muted); line-height: 1.7;">cmd0 currently supports macOS and Linux (including Wayland/Hyprland). Windows is not yet supported. On macOS, use Cmd+0 to summon. On Linux, use Super+0 (or Cmd+0 on some setups).</p>
+        </div>
+        <div class="faq-item" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+          <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+            What is the pi-notetaker extension?
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;"><path d="M6 9l6 6 6-6"/></svg>
+          </h3>
+          <p style="font-size: 15px; color: var(--text-muted); line-height: 1.7;">pi-notetaker is a pi extension for cmd0 that records meetings, transcribes audio locally using Whisper, and generates AI summaries. Everything happens offline on your machine — no audio data leaves your computer. Perfect for private meeting notes.</p>
+        </div>
+        <div class="faq-item" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+          <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+            How does the self-modification feature work?
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;"><path d="M6 9l6 6 6-6"/></svg>
+          </h3>
+          <p style="font-size: 15px; color: var(--text-muted); line-height: 1.7;">Using the <code>/0</code> command, you can instruct cmd0 to read its own source files (stored in ~/.cmd0/anima/), make modifications, and reload itself. This allows you to add features, change the UI, fix bugs, or customize behavior without manually editing files. Changes are synced back to the project directory and recompiled.</p>
+        </div>
+        <div class="faq-item" style="border-bottom: 1px solid var(--border); padding: 24px 0;">
+          <h3 style="font-size: 17px; font-weight: 600; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+            Is it safe to let an AI modify its own code?
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;"><path d="M6 9l6 6 6-6"/></svg>
+          </h3>
+          <p style="font-size: 15px; color: var(--text-muted); line-height: 1.7;">cmd0 includes safety features: snapshots (<code>/snap</code> and <code>/restore</code>) let you save and restore complete states, and safe mode (<code>--safe</code> flag or <code>/safe</code> command) restores base files and disables self-modification. If something breaks, you can always restore from a snapshot or the base backup.</p>
+        </div>
+      </div>
+    </section>
+    
     <footer>
       <div class="footer-content">
         <div class="footer-brand">
@@ -1289,6 +1485,7 @@
           <ul>
             <li><a href="#features">Features</a></li>
             <li><a href="#extensions">Extensions</a></li>
+            <li><a href="#faq">FAQ</a></li>
             <li><a href="#install">Install</a></li>
             <li><a href="#workflow">How it works</a></li>
           </ul>
@@ -1299,6 +1496,8 @@
             <li><a href="https://github.com/dvrosalesm/cmd0" target="_blank">GitHub</a></li>
             <li><a href="https://github.com/dvrosalesm/pi-notetaker" target="_blank">pi-notetaker</a></li>
             <li><a href="https://github.com/mariozechner/pi-coding-agent" target="_blank">pi-coding-agent</a></li>
+            <li><a href="llms.txt">llms.txt</a></li>
+            <li><a href="llms-full.txt">Full docs</a></li>
           </ul>
         </div>
         <div class="footer-links">
