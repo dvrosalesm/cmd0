@@ -448,99 +448,10 @@
       }
     }
     
-    /* Demo Window */
+    /* Demo Section - Real UI Mockup */
     .demo-section {
       margin-bottom: 160px;
-    }
-    
-    .demo-window {
-      max-width: 800px;
-      margin: 0 auto;
-      background: rgba(17, 17, 17, 0.8);
-      backdrop-filter: blur(40px);
-      -webkit-backdrop-filter: blur(40px);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 20px;
-      overflow: hidden;
-      box-shadow: 
-        0 0 0 1px rgba(255,255,255,0.05),
-        0 40px 80px rgba(0,0,0,0.6),
-        0 0 120px rgba(255,255,255,0.03);
-      animation: float 6s ease-in-out infinite;
-    }
-    
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-    
-    .demo-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 16px 20px;
-      background: rgba(255,255,255,0.02);
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-    
-    .demo-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-    }
-    .demo-dot:nth-child(1) { background: #ff5f57; }
-    .demo-dot:nth-child(2) { background: #febc2e; }
-    .demo-dot:nth-child(3) { background: #28c840; }
-    
-    .demo-content {
-      padding: 32px;
-    }
-    
-    .chat-bubble {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px;
-      padding: 20px 24px;
-      margin-bottom: 16px;
-      font-size: 15px;
-      line-height: 1.6;
-      color: rgba(255,255,255,0.9);
-      max-width: 90%;
-    }
-    
-    .chat-bubble strong {
-      color: #fff;
-      font-weight: 500;
-    }
-    
-    .chat-input {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 16px 20px;
-      background: rgba(0,0,0,0.3);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 12px;
-      color: rgba(255,255,255,0.3);
-    }
-    
-    .chat-input svg {
-      flex-shrink: 0;
-      opacity: 0.5;
-    }
-    
-    .cursor-blink {
-      display: inline-block;
-      width: 2px;
-      height: 18px;
-      background: rgba(255,255,255,0.5);
-      animation: cursor-blink 1s step-end infinite;
-      margin-left: 4px;
-      vertical-align: middle;
-    }
-    
-    @keyframes cursor-blink {
-      50% { opacity: 0; }
+      padding: 0 20px;
     }
     
     /* Section styling */
@@ -1041,26 +952,45 @@
     </section>
     
     <section class="demo-section">
-      <div class="demo-window">
-        <div class="demo-header">
-          <div class="demo-dot"></div>
-          <div class="demo-dot"></div>
-          <div class="demo-dot"></div>
+      <div style="max-width: 420px; margin: 0 auto;">
+        <!-- Real cmd0 UI mockup -->
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 8px;">
+          <!-- Response bubble -->
+          <div style="background: rgba(0, 0, 0, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 14px; color: rgba(255, 255, 255, 0.9); font-size: 13px; line-height: 1.5; max-width: 100%; animation: fade-in-up 0.5s ease-out;">
+            I can help you search the web, run terminal commands, automate browsers, and more. Use <code style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px; font-family: monospace;">/0</code> to modify my code directly.
+          </div>
+          
+          <!-- User message -->
+          <div style="background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 12px; padding: 12px 14px; color: rgba(255, 255, 255, 0.95); font-size: 13px; line-height: 1.5; max-width: 90%; align-self: flex-end; animation: fade-in-up 0.5s ease-out 0.3s both;">
+            Search for Rust async runtime comparisons
+          </div>
+          
+          <!-- Activity indicator -->
+          <div style="display: flex; align-items: center; gap: 8px; padding: 8px 4px; opacity: 0.7; animation: fade-in-up 0.5s ease-out 0.6s both;">
+            <div style="display: inline-flex; gap: 4px;">
+              <span style="width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, 0.5); animation: dot-pulse 1.2s ease-in-out infinite;"></span>
+              <span style="width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, 0.5); animation: dot-pulse 1.2s ease-in-out infinite 0.2s;"></span>
+              <span style="width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, 0.5); animation: dot-pulse 1.2s ease-in-out infinite 0.4s;"></span>
+            </div>
+            <span style="font-size: 12px; color: rgba(255, 255, 255, 0.5); font-style: italic;">Searching...</span>
+          </div>
         </div>
-        <div class="demo-content">
-          <div class="chat-bubble">
-            <strong>cmd0</strong> can help you with a wide range of tasks — from searching the web and automating browsers to running terminal commands and managing background tasks. I can even modify my own source code when you use the <code>/0</code> command.
-          </div>
-          <div class="chat-bubble" style="background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.2);">
-            <strong>You:</strong> Search for the latest Rust async runtime comparisons and fetch the most detailed article<span class="cursor-blink"></span>
-          </div>
-          <div class="chat-input">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-            </svg>
-            <span>Type a command or ask anything...</span>
-          </div>
+        
+        <!-- Input bar -->
+        <div style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; background: rgba(0, 0, 0, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; margin-top: 12px; animation: fade-in-up 0.5s ease-out 0.9s both;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" style="flex-shrink: 0; cursor: pointer;">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
+          <span style="flex: 1; color: rgba(255, 255, 255, 0.35); font-size: 15px;">Say something...</span>
+          <span style="color: rgba(255, 255, 255, 0.3); font-size: 12px; font-family: monospace;">⌘0</span>
         </div>
+        
+        <style>
+          @keyframes dot-pulse {
+            0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+            30% { opacity: 1; transform: scale(1); }
+          }
+        </style>
       </div>
     </section>
     
