@@ -36,5 +36,10 @@ interface Window {
     restoreSnapshot: (name: string) => Promise<string>;
     listSnapshots: () => Promise<string[]>;
     getCommands: () => Promise<{ name: string; description: string; source: string }[]>;
+    cmdStart: (command: string) => void;
+    cmdInput: (text: string) => void;
+    cmdKill: () => void;
+    onCmdOutput: (cb: (data: string) => void) => void;
+    onCmdExit: (cb: (code: number) => void) => void;
   };
 }

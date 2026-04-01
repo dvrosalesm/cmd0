@@ -24,4 +24,9 @@ contextBridge.exposeInMainWorld('cmd0', {
   restoreSnapshot: (name) => ipcRenderer.invoke('restore-snapshot', name),
   listSnapshots: () => ipcRenderer.invoke('list-snapshots'),
   getCommands: () => ipcRenderer.invoke('get-commands'),
+  cmdStart: (command) => ipcRenderer.send('cmd:start', command),
+  cmdInput: (text) => ipcRenderer.send('cmd:input', text),
+  cmdKill: () => ipcRenderer.send('cmd:kill'),
+  onCmdOutput: (cb) => ipcRenderer.on('cmd:output', (_e, data) => cb(data)),
+  onCmdExit: (cb) => ipcRenderer.on('cmd:exit', (_e, code) => cb(code)),
 });

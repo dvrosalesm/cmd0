@@ -10,6 +10,8 @@ let busy = false;
 let waitingForKey = false;
 let waitingForModel = false;
 let pendingKey = '';
+let cmdMode = false;
+let cmdOutput = '';
 
 // --- Attachments ---
 interface Attachment { type: 'screenshot' | 'file'; name: string; data: string; }
@@ -174,7 +176,7 @@ function askForModel(provider: string) {
 
 // --- Input handler ---
 input.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { if (paletteVisible) { hidePalette(); e.preventDefault(); return; } input.blur(); return; }
+  if (e.key === 'Escape') { if (paletteVisible) { hidePalette(); e.preventDefault(); return; } if (cmdMode) { window.cmd0.cmdKill(); e.preventDefault(); return; } input.blur(); return; }
 
   if (paletteVisible) {
     if (e.key === 'ArrowDown') { e.preventDefault(); paletteIdx = (paletteIdx + 1) % paletteFiltered.length; renderPalette(); scrollPaletteActive(); return; }
@@ -200,7 +202,28 @@ input.addEventListener('keydown', (e) => {
   if (waitingForModel) { showBubble('Connecting...'); input.disabled = true; waitingForModel = false; window.cmd0.setKey(pendingKey, text || undefined); return; }
 
   if (text === '/safe') { showBubble('Restarting in safe mode...'); window.cmd0.relaunchSafe(); return; }
-  if (text === '/cancel') { if (busy) { window.cmd0.cancel(); showBubble('Cancelled.'); input.placeholder = 'Say something...'; busy = false; logParts = []; currentText = ''; currentThinking = ''; isThinking = false; } return; }
+  if (text === '/cancel') {
+    if (cmdMode) { window.cmd0.cmdKill(); return; }
+    if (busy) { window.cmd0.cancel(); showBubble('Cancelled.'); input.placeholder = 'Say something...'; busy = false; logParts = []; currentText = ''; currentThinking = ''; isThinking = false; }
+    return;
+  }
+  if (text.startsWith('/cmd ')) {
+    const command = text.slice(5).trim();
+    if (!command) { showBubble('Usage: /cmd <command>'); return; }
+    cmdMode = true; cmdOutput = ''; busy = true;
+    showBubble('$ ' + command); input.placeholder = 'Type input for command... (/cancel to stop)';
+    bar.classList.add('command'); input.focus();
+    window.cmd0.cmdStart(command);
+    return;
+  }
+
+  if (cmdMode) {
+    // In cmd mode, input goes to the running process
+    window.cmd0.cmdInput(text);
+    cmdOutput += text + '\n'; showBubble(cmdOutput);
+    return;
+  }
+
   if (text === '/snapshots') { window.cmd0.listSnapshots().then(l => showBubble(l.length ? 'Snapshots:\n' + l.map(s => '  - ' + s).join('\n') : 'No snapshots.')); return; }
   if (text.startsWith('/snap ')) { const n = text.slice(6).trim(); if (!n) { showBubble('Usage: /snap <name>'); return; } window.cmd0.snapshot(n).then(m => showBubble(m)); return; }
   if (text.startsWith('/restore ')) { const n = text.slice(9).trim(); if (!n) { showBubble('Usage: /restore <name>'); return; } window.cmd0.restoreSnapshot(n).then(m => showBubble(m)); return; }
@@ -293,6 +316,21 @@ window.cmd0.onDone(() => {
   if (logParts.length) flushLog();
   else if (!hadOutput) showBubble('Command completed. Extension commands may need terminal for full output — run: pi /<command>');
   input.placeholder = 'Say something...'; busy = false; logParts = []; currentText = ''; currentThinking = ''; isThinking = false; hadOutput = false; input.focus();
+});
+
+// --- Terminal command output ---
+function stripAnsi(s: string) { return s.replace(/\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?(?:\x07|\x1b\\)|\r/g, ''); }
+
+window.cmd0.onCmdOutput((data) => {
+  cmdOutput += stripAnsi(data);
+  showBubble(cmdOutput);
+});
+
+window.cmd0.onCmdExit((code) => {
+  cmdOutput += `\n[exit ${code}]`;
+  showBubble(cmdOutput);
+  cmdMode = false; cmdOutput = ''; busy = false;
+  input.placeholder = 'Say something...'; bar.classList.remove('command'); input.focus();
 });
 
 window.cmd0.onNeedKey(() => askForKey());

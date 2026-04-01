@@ -11,7 +11,7 @@ import {
   readdirSync, copyFileSync, statSync, unlinkSync
 } from 'fs';
 import { readFile } from 'fs/promises';
-import { execSync, execFile } from 'child_process';
+import { execSync, execFile, spawn, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import {
   createAgentSession, AuthStorage, ModelRegistry,
@@ -124,25 +124,27 @@ const ANIMA_FILES = [
 ];
 
 // Static files loaded directly at runtime (not compiled by tsc).
-// These are seeded to anima on startup and served from there.
-const ANIMA_STATIC = ['index.html', 'style.css', 'preload.cjs'];
+// Structural files (must match main process) are always synced from source.
+// Customizable files (style.css) are only seeded once.
+const ANIMA_STATIC_SYNC = ['index.html', 'preload.cjs']; // always updated from source
+const ANIMA_STATIC_SEED = ['style.css'];                   // only created if missing
 
-/** Seed static runtime files to anima if they don't exist yet. */
+/** Sync structural static files and seed customizable ones. */
 function seedAnimaStatic() {
-  for (const dest of ANIMA_STATIC) {
+  const copyIfNeeded = (dest: string, force: boolean) => {
     const animaPath = join(ANIMA_DIR, dest);
-    if (!existsSync(animaPath)) {
-      const mapping = ANIMA_FILES.find(f => f.dest === dest);
-      if (mapping) {
-        const srcPath = join(PROJECT_DIR, mapping.src);
-        if (existsSync(srcPath)) {
-          const parentDir = dirname(animaPath);
-          if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
-          copyFileSync(srcPath, animaPath);
-        }
-      }
-    }
-  }
+    if (!force && existsSync(animaPath)) return;
+    const mapping = ANIMA_FILES.find(f => f.dest === dest);
+    if (!mapping) return;
+    const srcPath = join(PROJECT_DIR, mapping.src);
+    if (!existsSync(srcPath)) return;
+    const parentDir = dirname(animaPath);
+    if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
+    copyFileSync(srcPath, animaPath);
+  };
+  for (const dest of ANIMA_STATIC_SYNC) copyIfNeeded(dest, true);
+  for (const dest of ANIMA_STATIC_SEED) copyIfNeeded(dest, false);
+
   // Fix paths in anima index.html on every startup (handles project moves too).
   // In anima: style.css is at root (not src/), and dist/ is in the project dir.
   const animaHtml = join(ANIMA_DIR, 'index.html');
@@ -943,6 +945,38 @@ ipcMain.on('widget:move', (_e, { dx, dy }: { dx: number; dy: number }) => {
   saveWinState(true);
 });
 
+// --- Terminal command runner (/cmd) ---
+let cmdProc: ChildProcess | null = null;
+
+ipcMain.on('cmd:start', (_e, command: string) => {
+  if (cmdProc || !win) return;
+  // Auto-add -S to sudo so it reads password from stdin and prompts on stderr
+  const cmd = command.replace(/\bsudo\b(?!\s+-\S*S)/, 'sudo -S');
+  const shell = process.env.SHELL || '/bin/sh';
+  cmdProc = spawn(shell, ['-lic', cmd], {
+    cwd: PROJECT_DIR,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, TERM: 'dumb' },
+  });
+  const send = (d: Buffer) => win?.webContents.send('cmd:output', d.toString());
+  cmdProc.stdout!.on('data', send);
+  cmdProc.stderr!.on('data', send);
+  cmdProc.on('close', (code) => { cmdProc = null; win?.webContents.send('cmd:exit', code ?? 0); });
+  cmdProc.on('error', (e) => { cmdProc = null; win?.webContents.send('cmd:output', `Error: ${e.message}\n`); win?.webContents.send('cmd:exit', 1); });
+});
+
+ipcMain.on('cmd:input', (_e, text: string) => {
+  if (cmdProc?.stdin?.writable) cmdProc.stdin.write(text + '\n');
+});
+
+ipcMain.on('cmd:kill', () => {
+  if (!cmdProc) return;
+  cmdProc.kill('SIGTERM');
+  setTimeout(() => {
+    if (cmdProc) { cmdProc.kill('SIGKILL'); cmdProc = null; win?.webContents.send('cmd:exit', 130); }
+  }, 500);
+});
+
 ipcMain.handle('read-clipboard-files', async () => {
   const r: { name: string; content: string }[] = [];
   try {
@@ -995,6 +1029,7 @@ ipcMain.handle('list-snapshots', () => listSnaps());
 const BUILTIN_COMMANDS = [
   { name: '0', description: 'Modify own source code', source: 'builtin' },
   { name: 'update', description: 'Pull latest version and resolve conflicts', source: 'builtin' },
+  { name: 'cmd', description: 'Run a terminal command (interactive)', source: 'builtin' },
   { name: 'tasks', description: 'List, add, or remove background tasks', source: 'builtin' },
   { name: 'cancel', description: 'Stop the current agent operation', source: 'builtin' },
   { name: 'safe', description: 'Restart in safe mode', source: 'builtin' },
@@ -1087,6 +1122,13 @@ if (!CLI_MODE) app.whenReady().then(async () => {
       else { win.show(); win.webContents.send('widget:focus'); }
     });
   }
+
+  // Inherit the user's full shell PATH so extensions/tools can find user-installed binaries
+  try {
+    const shell = process.env.SHELL || '/bin/sh';
+    const shellPath = execSync(`${shell} -lic 'echo $PATH'`, { timeout: 5000 }).toString().trim();
+    if (shellPath) process.env.PATH = shellPath;
+  } catch {}
 
   ensureDirs();
   writeFileSync(PID_FILE, String(process.pid));
