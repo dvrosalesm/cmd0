@@ -23,4 +23,5 @@ contextBridge.exposeInMainWorld('cmd0', {
   snapshot: (name) => ipcRenderer.invoke('snapshot', name),
   restoreSnapshot: (name) => ipcRenderer.invoke('restore-snapshot', name),
   listSnapshots: () => ipcRenderer.invoke('list-snapshots'),
+  getCommands: () => ipcRenderer.invoke('get-commands'),
 });

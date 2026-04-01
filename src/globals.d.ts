@@ -5,6 +5,10 @@ interface AgentEvent {
   args?: string;
   result?: string;
   isError?: boolean;
+  message?: string;
+  notificationType?: string;
+  key?: string;
+  text?: string;
 }
 
 interface Window {
@@ -31,5 +35,6 @@ interface Window {
     snapshot: (name: string) => Promise<string>;
     restoreSnapshot: (name: string) => Promise<string>;
     listSnapshots: () => Promise<string[]>;
+    getCommands: () => Promise<{ name: string; description: string; source: string }[]>;
   };
 }

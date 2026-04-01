@@ -2,20 +2,21 @@
 
 html, body {
   width: 100%; height: 100%; overflow: hidden;
-  background: transparent;
+  background: #000;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .container {
   display: flex; flex-direction: column; justify-content: flex-end;
   width: 100%; height: 100%; gap: 8px;
+  background: #000;
 }
 
 .bubble {
-  background: rgba(20, 20, 30, 0.85);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 10px 14px; color: rgba(255, 255, 255, 0.85);
+  background: #000;
+  border: none;
+  border-radius: 0;
+  padding: 10px 14px; color: rgba(255, 255, 255, 0.9);
   font-size: 13px; line-height: 1.5; word-wrap: break-word;
   max-height: 70vh; overflow-y: auto; white-space: pre-wrap;
   scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
@@ -29,8 +30,10 @@ html, body {
 .attachments.hidden { display: none; }
 .pill {
   display: flex; align-items: center; gap: 4px;
-  background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px; padding: 3px 8px; font-size: 11px; color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 0;
+  padding: 3px 8px; font-size: 11px; color: rgba(255, 255, 255, 0.7);
   max-width: 160px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
 .pill-icon { flex-shrink: 0; opacity: 0.6; }
@@ -60,13 +63,13 @@ html, body {
 .bar {
   display: flex; align-items: center; gap: 8px;
   width: 100%; height: 44px; min-height: 44px; padding: 0 12px;
-  background: rgba(20, 20, 30, 0.85);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #000;
+  border: none;
+  border-radius: 0;
   cursor: grab;
 }
 .bar:active { cursor: grabbing; }
-.bar.command { border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); }
+.bar.command { background: rgba(255, 255, 255, 0.05); border: none; }
 .bar.command .input { font-weight: 500; }
 
 .attach {
@@ -80,3 +83,23 @@ html, body {
   color: #fff; font-size: 15px; font-family: inherit;
 }
 .input::placeholder { color: rgba(255, 255, 255, 0.3); }
+
+/* Command palette */
+.palette {
+  background: #000;
+  border: none;
+  border-radius: 0;
+  padding: 4px 0; max-height: 240px; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+.palette::-webkit-scrollbar { width: 4px; }
+.palette::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 2px; }
+.palette.hidden { display: none; }
+.palette-item {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 6px 12px; cursor: pointer;
+}
+.palette-item.active { background: rgba(255, 255, 255, 0.1); }
+.palette-name { color: #fff; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.palette-desc { color: rgba(255, 255, 255, 0.4); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette-source { color: rgba(255, 255, 255, 0.2); font-size: 10px; margin-left: auto; white-space: nowrap; }

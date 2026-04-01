@@ -16,8 +16,9 @@ import { promisify } from 'util';
 import {
   createAgentSession, AuthStorage, ModelRegistry,
   SessionManager, DefaultResourceLoader, getAgentDir,
-  SettingsManager
+  SettingsManager,
 } from '@mariozechner/pi-coding-agent';
+import type { ExtensionUIContext } from '@mariozechner/pi-coding-agent';
 import { getModel } from '@mariozechner/pi-ai';
 import { loadFeatures } from './features/index.js';
 import type { FeatureContext } from './features/types.js';
@@ -121,6 +122,37 @@ const ANIMA_FILES = [
   { src: 'package.json', dest: 'package.json' },
   { src: 'me.md', dest: 'me.md' },
 ];
+
+// Static files loaded directly at runtime (not compiled by tsc).
+// These are seeded to anima on startup and served from there.
+const ANIMA_STATIC = ['index.html', 'style.css', 'preload.cjs'];
+
+/** Seed static runtime files to anima if they don't exist yet. */
+function seedAnimaStatic() {
+  for (const dest of ANIMA_STATIC) {
+    const animaPath = join(ANIMA_DIR, dest);
+    if (!existsSync(animaPath)) {
+      const mapping = ANIMA_FILES.find(f => f.dest === dest);
+      if (mapping) {
+        const srcPath = join(PROJECT_DIR, mapping.src);
+        if (existsSync(srcPath)) {
+          const parentDir = dirname(animaPath);
+          if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
+          copyFileSync(srcPath, animaPath);
+        }
+      }
+    }
+  }
+  // Fix paths in anima index.html on every startup (handles project moves too).
+  // In anima: style.css is at root (not src/), and dist/ is in the project dir.
+  const animaHtml = join(ANIMA_DIR, 'index.html');
+  if (existsSync(animaHtml)) {
+    let html = readFileSync(animaHtml, 'utf-8');
+    html = html.replace(/href="(?:src\/)?style\.css"/, 'href="style.css"');
+    html = html.replace(/src="[^"]*renderer\.js"/, `src="${join(PROJECT_DIR, 'dist', 'renderer.js')}"`);
+    writeFileSync(animaHtml, html, 'utf-8');
+  }
+}
 
 // --- Anima overlay system ---
 // Anima (~/.cmd0/anima/) stores ONLY user customizations made via /0.
@@ -426,6 +458,9 @@ function sendError(err: unknown) {
 // Only set during /0 prompts; cleared when the prompt finishes.
 let animaUnlocked = false;
 
+// Reference to pi ExtensionAPI for querying extension commands.
+let piApi: { getCommands(): { name: string; description?: string; source: string }[] } | null = null;
+
 async function runPrompt(text: string, img?: string) {
   if (!session) throw new Error('No session.');
   if (sessionBusy) throw new Error('Agent busy.');
@@ -627,6 +662,7 @@ async function initAgent(key: string, modelId?: string) {
     settingsManager,
     appendSystemPrompt: animaCtx || undefined,
     extensionFactories: [(pi) => {
+      piApi = pi;
       // Map project source paths to anima dest names for quick lookup
       const srcToAnima = new Map(ANIMA_FILES.map(f => [resolve(PROJECT_DIR, f.src), f.dest]));
 
@@ -685,6 +721,42 @@ async function initAgent(key: string, modelId?: string) {
     resourceLoader: rl
   });
   session = result.session;
+
+  // Bridge extension UI calls to cmd0's renderer
+  const uiContext: ExtensionUIContext = {
+    notify(message, type) {
+      if (win) win.webContents.send('agent:event', { kind: 'ext_notify', message, notificationType: type || 'info' });
+    },
+    setStatus(key, text) {
+      if (win) win.webContents.send('agent:event', { kind: 'ext_status', key, text });
+    },
+    async confirm(_title, message) {
+      // Auto-confirm for now — show the message so user sees it
+      if (win) win.webContents.send('agent:event', { kind: 'ext_notify', message, notificationType: 'info' });
+      return true;
+    },
+    async select(_title, options) { return options[0]; },
+    async input(_title, _placeholder) { return undefined; },
+    async editor(_title, _prefill) { return undefined; },
+    setWorkingMessage() {},
+    setWidget() {},
+    setFooter() {},
+    setHeader() {},
+    setTitle() {},
+    custom() { return Promise.resolve(undefined as any); },
+    pasteToEditor() {},
+    setEditorText() {},
+    getEditorText() { return ''; },
+    setEditorComponent() {},
+    onTerminalInput() { return () => {}; },
+    get theme() { return {} as any; },
+    getAllThemes() { return []; },
+    getTheme() { return undefined; },
+    setTheme() { return { success: false }; },
+    getToolsExpanded() { return false; },
+    setToolsExpanded() {},
+  };
+  await session.bindExtensions({ uiContext });
 
   session.subscribe((event) => {
     if (!win) return;
@@ -751,13 +823,16 @@ function createWindow() {
     resizable: false, skipTaskbar: true, hasShadow: false, show: false,
     ...(IS_LINUX ? { backgroundColor: '#00000000' } : {}),
     webPreferences: {
-      preload: join(__dirname, '..', 'preload.cjs'),
+      preload: existsSync(join(ANIMA_DIR, 'preload.cjs'))
+        ? join(ANIMA_DIR, 'preload.cjs')
+        : join(__dirname, '..', 'preload.cjs'),
       contextIsolation: true, nodeIntegration: false,
       sandbox: true, webSecurity: true
     }
   });
 
-  win.loadFile(join(__dirname, '..', 'index.html'));
+  const animaHtml = join(ANIMA_DIR, 'index.html');
+  win.loadFile(existsSync(animaHtml) ? animaHtml : join(__dirname, '..', 'index.html'));
   win.setVisibleOnAllWorkspaces(true);
   win.setIgnoreMouseEvents(false);
 
@@ -822,18 +897,22 @@ ipcMain.on('agent:prompt', async (_e, text: string) => {
   if (!session || !win) return;
   try { await runPrompt(reqStr(text, 'Prompt', MAX_PROMPT)); }
   catch (e) { sendError(e); }
+  // Always ensure renderer is unblocked — extension commands don't emit agent_end
+  if (win) win.webContents.send('agent:done');
 });
 
 ipcMain.on('agent:prompt-anima', async (_e, text: string) => {
   if (!session || !win) return;
   try { await runAnimaPrompt(reqStr(text, 'Prompt', MAX_PROMPT)); }
   catch (e) { sendError(e); }
+  if (win) win.webContents.send('agent:done');
 });
 
 ipcMain.on('agent:prompt-image', async (_e, text: string, img: string) => {
   if (!session || !win) return;
   try { await runPrompt(reqStr(text, 'Prompt', MAX_PROMPT), reqImg(img)); }
   catch (e) { sendError(e); }
+  if (win) win.webContents.send('agent:done');
 });
 
 ipcMain.on('relaunch-safe', () => {
@@ -912,6 +991,22 @@ ipcMain.handle('screenshot', async () => await captureScreenshot());
 ipcMain.handle('snapshot', (_e, name: string) => doSnapshot(name));
 ipcMain.handle('restore-snapshot', (_e, name: string) => doRestore(name));
 ipcMain.handle('list-snapshots', () => listSnaps());
+
+const BUILTIN_COMMANDS = [
+  { name: '0', description: 'Modify own source code', source: 'builtin' },
+  { name: 'update', description: 'Pull latest version and resolve conflicts', source: 'builtin' },
+  { name: 'tasks', description: 'List, add, or remove background tasks', source: 'builtin' },
+  { name: 'cancel', description: 'Stop the current agent operation', source: 'builtin' },
+  { name: 'safe', description: 'Restart in safe mode', source: 'builtin' },
+  { name: 'snap', description: 'Save a snapshot', source: 'builtin' },
+  { name: 'restore', description: 'Restore a snapshot', source: 'builtin' },
+  { name: 'snapshots', description: 'List all saved snapshots', source: 'builtin' },
+];
+
+ipcMain.handle('get-commands', () => {
+  const ext = piApi ? piApi.getCommands().map(c => ({ name: c.name, description: c.description || '', source: c.source })) : [];
+  return [...BUILTIN_COMMANDS, ...ext];
+});
 
 // --- Feature state (set by initAgent) ---
 let featureCleanup: (() => Promise<void>) | null = null;
@@ -998,12 +1093,14 @@ if (!CLI_MODE) app.whenReady().then(async () => {
   process.on('SIGUSR2', () => toggleWindow());
   backupBaseFiles();
 
+  seedAnimaStatic();
+
   if (SAFE_MODE) {
     restoreBaseFiles();
     try { execSync(TSC, { cwd: PROJECT_DIR, timeout: 30000 }); }
     catch (e) { console.error('[cmd0] Safe recompile:', e); }
   } else {
-    // Compile with anima overlay so user customizations take effect
+    // Compile with anima overlay so TS customizations take effect
     try { compileWithOverlay(); }
     catch (e) { console.error('[cmd0] Overlay compile:', e); }
   }

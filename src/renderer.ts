@@ -79,28 +79,83 @@ function showBubble(text: string) {
   bubble.classList.remove('hidden');
 }
 
-// --- Commands ---
-const COMMANDS = [
-  { name: '/0', hint: '/0 <instruction> — modify own source code' },
-  { name: '/cancel', hint: '/cancel — stop the agent' },
-  { name: '/tasks', hint: '/tasks — list, add, or remove tasks' },
-  { name: '/safe', hint: '/safe — restart in safe mode' },
-  { name: '/snap', hint: '/snap <name> — save a snapshot' },
-  { name: '/restore', hint: '/restore <name> — restore a snapshot' },
-  { name: '/snapshots', hint: '/snapshots — list all snapshots' },
-];
+// --- Command palette ---
+type CmdEntry = { name: string; description: string; source: string };
+let allCommands: CmdEntry[] = [];
+let paletteVisible = false;
+let paletteIdx = -1;
+let paletteFiltered: CmdEntry[] = [];
 
-function getMatchedCommand(text: string): typeof COMMANDS[0] | null {
-  for (const cmd of COMMANDS) { if (text === cmd.name || text.startsWith(cmd.name + ' ')) return cmd; }
-  return null;
+const palette = document.createElement('div');
+palette.className = 'palette hidden';
+bar.parentElement!.insertBefore(palette, bar);
+
+async function loadCommands() {
+  try { allCommands = await window.cmd0.getCommands(); } catch { /* not ready yet */ }
 }
-function updateCommandHighlight() { bar.classList.toggle('command', !!getMatchedCommand(input.value)); }
-input.addEventListener('input', updateCommandHighlight);
 
-// --- Tab autocomplete ---
-let acIdx = -1;
-let acMatches: typeof COMMANDS = [];
-function getAcMatches(t: string) { return t.startsWith('/') ? COMMANDS.filter(c => c.name.startsWith(t) && c.name !== t) : []; }
+function updatePalette() {
+  const val = input.value;
+  if (!val.startsWith('/') || val.includes(' ')) { hidePalette(); return; }
+  const query = val.slice(1).toLowerCase();
+  paletteFiltered = query
+    ? allCommands.filter(c => c.name.toLowerCase().includes(query))
+    : allCommands;
+  if (!paletteFiltered.length) { hidePalette(); return; }
+  paletteIdx = 0;
+  renderPalette();
+  palette.classList.remove('hidden');
+  paletteVisible = true;
+}
+
+function renderPalette() {
+  palette.innerHTML = paletteFiltered.map((c, i) =>
+    `<div class="palette-item${i === paletteIdx ? ' active' : ''}" data-idx="${i}">` +
+    `<span class="palette-name">/${c.name}</span>` +
+    `<span class="palette-desc">${c.description}</span>` +
+    (c.source !== 'builtin' ? `<span class="palette-source">${c.source}</span>` : '') +
+    `</div>`
+  ).join('');
+}
+
+function hidePalette() {
+  palette.classList.add('hidden');
+  paletteVisible = false;
+  paletteIdx = -1;
+}
+
+function selectPaletteItem(idx: number) {
+  const cmd = paletteFiltered[idx];
+  if (!cmd) return;
+  input.value = '/' + cmd.name + ' ';
+  hidePalette();
+  bar.classList.add('command');
+  input.focus();
+}
+
+function scrollPaletteActive() {
+  const el = palette.querySelector('.palette-item.active') as HTMLElement | null;
+  if (el) el.scrollIntoView({ block: 'nearest' });
+}
+
+palette.addEventListener('mousedown', (e) => {
+  e.preventDefault(); // keep input focus
+  const item = (e.target as HTMLElement).closest('.palette-item') as HTMLElement | null;
+  if (item) selectPaletteItem(Number(item.dataset.idx));
+});
+
+input.addEventListener('blur', () => setTimeout(hidePalette, 100));
+
+function updateCommandHighlight() {
+  const val = input.value;
+  const isCmd = val.startsWith('/') && allCommands.some(c => val === '/' + c.name || val.startsWith('/' + c.name + ' '));
+  bar.classList.toggle('command', isCmd);
+}
+
+input.addEventListener('input', () => {
+  updateCommandHighlight();
+  updatePalette();
+});
 
 // --- Onboarding ---
 function askForKey() {
@@ -119,15 +174,14 @@ function askForModel(provider: string) {
 
 // --- Input handler ---
 input.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { input.blur(); return; }
-  if (e.key === 'Tab') {
-    const t = input.value; if (!t.startsWith('/')) return; e.preventDefault();
-    if (acIdx === -1) { acMatches = getAcMatches(t); if (!acMatches.length) return; acIdx = 0; }
-    else acIdx = (acIdx + 1) % acMatches.length;
-    input.value = acMatches[acIdx].name + ' '; input.placeholder = acMatches[acIdx].hint;
-    updateCommandHighlight(); return;
+  if (e.key === 'Escape') { if (paletteVisible) { hidePalette(); e.preventDefault(); return; } input.blur(); return; }
+
+  if (paletteVisible) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); paletteIdx = (paletteIdx + 1) % paletteFiltered.length; renderPalette(); scrollPaletteActive(); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); paletteIdx = (paletteIdx - 1 + paletteFiltered.length) % paletteFiltered.length; renderPalette(); scrollPaletteActive(); return; }
+    if (e.key === 'Tab' || (e.key === 'Enter' && paletteIdx >= 0)) { e.preventDefault(); selectPaletteItem(paletteIdx); return; }
   }
-  acIdx = -1; acMatches = [];
+
   if (e.key !== 'Enter') return;
   if (!input.value.trim() && !waitingForModel) return;
 
@@ -152,13 +206,13 @@ input.addEventListener('keydown', (e) => {
   if (text.startsWith('/restore ')) { const n = text.slice(9).trim(); if (!n) { showBubble('Usage: /restore <name>'); return; } window.cmd0.restoreSnapshot(n).then(m => showBubble(m)); return; }
 
   if (text === '/tasks' || text.startsWith('/tasks ')) {
-    const arg = text.slice(6).trim(); busy = true; showActivity(); input.placeholder = '...';
+    const arg = text.slice(6).trim(); startBusy();
     window.cmd0.prompt(arg ? 'Manage tasks: ' + arg + '\n\nUse task_add, task_remove, task_list, task_complete.' : 'List all tasks using task_list.');
     return;
   }
 
   if (text.startsWith('/update')) {
-    busy = true; logParts = []; currentText = ''; currentThinking = ''; isThinking = false; showActivity(); input.placeholder = '...';
+    startBusy();
     window.cmd0.promptAnima([
       'The user wants to update cmd0 to the latest version.',
       'Steps:',
@@ -166,8 +220,11 @@ input.addEventListener('keydown', (e) => {
       '2. Use anima_list to see which files have [customized] overrides.',
       '3. For each customized file, compare the anima version with the new upstream source (use anima_read to see what the user has, use bash to cat the project source).',
       '4. If there are conflicts (upstream changed something the user also customized), explain the differences and ask the user how to resolve.',
-      '5. Once resolved, call anima_reload to recompile with the updated source + user overlays.',
-      '6. After updating, append a brief summary of what changed to ~/.cmd0/changelog.md.',
+      '5. IMPORTANT: Static files (index.html, style.css, preload.cjs) live in ~/.cmd0/anima/ and are loaded at runtime from there.',
+      '   After git pull, read the NEW upstream versions of these files and merge any upstream changes into the anima copies.',
+      '   For example, if upstream added a new element to index.html, add it to the anima copy while preserving the user\'s customizations.',
+      '6. Once resolved, call anima_reload to recompile with the updated source + user overlays.',
+      '7. After updating, append a brief summary of what changed to ~/.cmd0/changelog.md.',
     ].join('\n'));
     return;
   }
@@ -175,7 +232,7 @@ input.addEventListener('keydown', (e) => {
   if (text.startsWith('/0')) {
     const instr = text.slice(2).trim();
     if (!instr) { showBubble('Usage: /0 <what to change>'); return; }
-    busy = true; logParts = []; currentText = ''; currentThinking = ''; isThinking = false; showActivity(); input.placeholder = '...';
+    startBusy();
     window.cmd0.promptAnima([
       'You are modifying your own source code via the anima overlay system.',
       '~/.cmd0/anima/ stores ONLY your customizations as overrides on the upstream source.',
@@ -193,7 +250,7 @@ input.addEventListener('keydown', (e) => {
     window.cmd0.steer(text);
     logParts.push(`[you] ${text}`); flushLog();
   } else {
-    busy = true; logParts = []; currentText = ''; currentThinking = ''; isThinking = false; showActivity(); input.placeholder = '...';
+    startBusy();
     const screenshots = attachments.filter(a => a.type === 'screenshot');
     const files = attachments.filter(a => a.type === 'file');
     let prompt = text;
@@ -204,8 +261,15 @@ input.addEventListener('keydown', (e) => {
   }
 });
 
+function startBusy() {
+  busy = true; hadOutput = false; logParts = []; currentText = ''; currentThinking = ''; isThinking = false;
+  showActivity(); input.placeholder = '...';
+}
+
 // --- Agent events ---
+let hadOutput = false;
 window.cmd0.onEvent((ev) => {
+  hadOutput = true;
   switch (ev.kind) {
     case 'thinking_start': isThinking = true; currentThinking = ''; break;
     case 'thinking_delta': currentThinking += ev.delta || ''; flushLog(); break;
@@ -215,13 +279,20 @@ window.cmd0.onEvent((ev) => {
     case 'tool_end': { const ic = ev.isError ? 'x' : 'ok'; const prev = ev.result?.slice(0, 200) || ''; logParts.push(`[${ic}] ${ev.toolName}${prev ? '\n' + prev : ''}`); flushLog(); break; }
     case 'turn_start': showActivity('thinking'); break;
     case 'turn_end': if (currentText) { logParts.push(currentText); currentText = ''; } break;
+    case 'ext_notify': {
+      const prefix = ev.notificationType === 'warning' ? 'Warning: ' : ev.notificationType === 'error' ? 'Error: ' : '';
+      logParts.push(prefix + (ev.message || '')); flushLog(); break;
+    }
+    case 'ext_status': if (ev.text) showActivity(ev.text); break;
   }
 });
 
 window.cmd0.onDone(() => {
+  if (!busy) return; // ignore duplicate agent:done
   if (currentText) { logParts.push(currentText); currentText = ''; }
   if (logParts.length) flushLog();
-  input.placeholder = 'Say something...'; busy = false; logParts = []; currentText = ''; currentThinking = ''; isThinking = false; input.focus();
+  else if (!hadOutput) showBubble('Command completed. Extension commands may need terminal for full output — run: pi /<command>');
+  input.placeholder = 'Say something...'; busy = false; logParts = []; currentText = ''; currentThinking = ''; isThinking = false; hadOutput = false; input.focus();
 });
 
 window.cmd0.onNeedKey(() => askForKey());
@@ -229,6 +300,7 @@ window.cmd0.onReady(async () => {
   waitingForKey = false; input.type = 'text'; input.disabled = false; input.placeholder = 'Say something...'; input.value = '';
   const safe = await window.cmd0.isSafeMode();
   showBubble(safe ? 'Ready (safe mode).' : 'Ready.'); input.focus();
+  loadCommands();
 });
 window.cmd0.onKeyError(() => { input.disabled = false; input.type = 'password'; input.value = ''; showBubble('Invalid key. Try again.'); });
 
