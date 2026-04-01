@@ -2,7 +2,6 @@
 
 const input = document.getElementById('input') as HTMLInputElement;
 const attach = document.getElementById('attach')!;
-const screenshotBtn = document.getElementById('screenshot')!;
 const bubble = document.getElementById('bubble')!;
 const bar = document.getElementById('bar')!;
 const attachmentsEl = document.getElementById('attachments')!;
@@ -216,7 +215,6 @@ window.cmd0.onReady(async () => {
 window.cmd0.onKeyError(() => { input.disabled = false; input.type = 'password'; input.value = ''; showBubble('Invalid key. Try again.'); });
 
 attach.addEventListener('click', async () => { if (busy) return; const f = await window.cmd0.pickFile(); if (f) { addAttachment({ type: 'file', name: f.name, data: f.content }); input.focus(); } });
-screenshotBtn.addEventListener('click', async () => { if (busy) return; const b = await window.cmd0.screenshot(); if (b) { attachCounter++; addAttachment({ type: 'screenshot', name: `Screenshot ${attachCounter}`, data: b }); input.focus(); } });
 window.cmd0.onFocus(() => setTimeout(() => input.focus(), 50));
 
 // --- Drag ---
@@ -224,6 +222,11 @@ let dragging = false, lx = 0, ly = 0;
 bar.addEventListener('mousedown', (e: MouseEvent) => { if ((e.target as HTMLElement).closest('.attach, .input')) return; dragging = true; lx = e.screenX; ly = e.screenY; });
 document.addEventListener('mousemove', (e: MouseEvent) => { if (!dragging) return; window.cmd0.move(e.screenX - lx, e.screenY - ly); lx = e.screenX; ly = e.screenY; });
 document.addEventListener('mouseup', () => { dragging = false; });
+
+// --- Expose shared state for feature UI scripts injected from main process ---
+Object.defineProperty(window, '__cmd0_busy', { get: () => busy });
+Object.defineProperty(window, '__cmd0_attachCounter', { get: () => attachCounter, set: (v: number) => { attachCounter = v; } });
+(window as any).__cmd0_addAttachment = (att: Attachment) => { addAttachment(att); input.focus(); };
 
 // --- Paste ---
 document.addEventListener('paste', async (e: ClipboardEvent) => {

@@ -18,10 +18,9 @@ import {
   SessionManager, DefaultResourceLoader, getAgentDir,
   SettingsManager
 } from '@mariozechner/pi-coding-agent';
-import type { ToolDefinition } from '@mariozechner/pi-coding-agent';
 import { getModel } from '@mariozechner/pi-ai';
-import { Type } from '@sinclair/typebox';
-import { chromium, Browser, Page, BrowserContext } from 'playwright';
+import { loadFeatures } from './features/index.js';
+import type { FeatureContext } from './features/types.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -66,6 +65,7 @@ interface Config {
   windowX?: number;
   windowY?: number;
   openrouterKey?: string;
+  features?: Record<string, boolean>;
 }
 
 function ensureDirs() {
@@ -107,6 +107,14 @@ const ANIMA_FILES = [
   { src: 'src/renderer.ts', dest: 'renderer.ts' },
   { src: 'src/style.css', dest: 'style.css' },
   { src: 'src/globals.d.ts', dest: 'globals.d.ts' },
+  { src: 'src/features/types.ts', dest: 'features/types.ts' },
+  { src: 'src/features/index.ts', dest: 'features/index.ts' },
+  { src: 'src/features/anima.ts', dest: 'features/anima.ts' },
+  { src: 'src/features/web.ts', dest: 'features/web.ts' },
+  { src: 'src/features/browser.ts', dest: 'features/browser.ts' },
+  { src: 'src/features/notify.ts', dest: 'features/notify.ts' },
+  { src: 'src/features/screenshot.ts', dest: 'features/screenshot.ts' },
+  { src: 'src/features/tasks.ts', dest: 'features/tasks.ts' },
   { src: 'index.html', dest: 'index.html' },
   { src: 'preload.cjs', dest: 'preload.cjs' },
   { src: 'tsconfig.json', dest: 'tsconfig.json' },
@@ -117,6 +125,9 @@ const ANIMA_FILES = [
 function syncAnimaFromProject() {
   for (const f of ANIMA_FILES) {
     const d = join(ANIMA_DIR, f.dest);
+    // Ensure parent dir exists for nested files (e.g. features/)
+    const parentDir = dirname(d);
+    if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
     if (!existsSync(d)) {
       const s = join(PROJECT_DIR, f.src);
       if (existsSync(s)) copyFileSync(s, d);
@@ -129,6 +140,8 @@ function backupBaseFiles() {
   for (const f of ANIMA_FILES) {
     const s = join(PROJECT_DIR, f.src);
     const b = join(BACKUP_DIR, f.dest);
+    const parentDir = dirname(b);
+    if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
     if (existsSync(s)) copyFileSync(s, b);
   }
 }
@@ -137,6 +150,8 @@ function restoreBaseFiles() {
   for (const f of ANIMA_FILES) {
     const b = join(BACKUP_DIR, f.dest);
     const d = join(PROJECT_DIR, f.src);
+    const parentDir = dirname(d);
+    if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
     if (existsSync(b)) copyFileSync(b, d);
   }
 }
@@ -146,14 +161,25 @@ function syncProjectFromAnima() {
   for (const f of ANIMA_FILES) {
     const s = join(ANIMA_DIR, f.dest);
     const d = join(PROJECT_DIR, f.src);
+    const parentDir = dirname(d);
+    if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
     if (existsSync(s)) copyFileSync(s, d);
   }
 }
 
 function listAnimaFiles(): string[] {
-  return existsSync(ANIMA_DIR)
-    ? readdirSync(ANIMA_DIR).filter(f => !f.startsWith('.'))
-    : [];
+  if (!existsSync(ANIMA_DIR)) return [];
+  const result: string[] = [];
+  function walk(dir: string, prefix: string) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.')) continue;
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) walk(join(dir, entry.name), rel);
+      else result.push(rel);
+    }
+  }
+  walk(ANIMA_DIR, '');
+  return result;
 }
 
 const dirtyAnimaFiles = new Set<string>();
@@ -402,7 +428,14 @@ async function runAnimaPrompt(text: string) {
 }
 
 // --- Snapshot helpers ---
+function validateSnapName(name: string): string {
+  const n = name.trim();
+  if (!n || !/^[a-zA-Z0-9_-]+$/.test(n)) throw new Error('Invalid snapshot name (use alphanumeric, dash, underscore only).');
+  return n;
+}
+
 function doSnapshot(name: string): string {
+  name = validateSnapName(name);
   const dir = join(SNAPSHOTS_DIR, name);
   if (existsSync(dir)) return `Snapshot "${name}" already exists.`;
   const ad = join(dir, 'anima');
@@ -419,6 +452,7 @@ function doSnapshot(name: string): string {
 }
 
 function doRestore(name: string): string {
+  name = validateSnapName(name);
   const dir = join(SNAPSHOTS_DIR, name);
   if (!existsSync(dir)) return `Snapshot "${name}" not found.`;
   const ad = join(dir, 'anima');
@@ -450,528 +484,25 @@ function listSnaps(): string[] {
     : [];
 }
 
-// --- Browser Automation (Snapshot-based, inspired by Vercel agent-browser) ---
-
-interface BrowserSession {
-  id: string;
-  browser: Browser;
-  context: BrowserContext;
-  page: Page;
-  refMap: Map<string, string>; // ref -> selector mapping
-  createdAt: number;
-}
-
-const browserSessions = new Map<string, BrowserSession>();
-let browserSessionCounter = 0;
-
-function generateSessionId(): string {
-  return `browser-${++browserSessionCounter}-${Date.now().toString(36)}`;
-}
-
-// Build accessibility tree snapshot with refs
-async function buildSnapshot(page: Page, interactiveOnly = true): Promise<{ snapshot: string; refMap: Map<string, string> }> {
-  const refMap = new Map<string, string>();
-  let refCounter = 1;
-  
-  const buildNode = async (element: any, depth = 0): Promise<string> => {
-    if (depth > 10) return '';
-    
-    const tag = await element.evaluate((el: any) => el.tagName?.toLowerCase()).catch(() => null);
-    if (!tag) return '';
-    
-    // Get computed role
-    const role = await element.evaluate((el: any) => {
-      const explicit = el.getAttribute('role');
-      if (explicit) return explicit;
-      // Implicit roles for common elements
-      if (el.tagName === 'BUTTON') return 'button';
-      if (el.tagName === 'A' && el.href) return 'link';
-      if (el.tagName === 'INPUT') return el.type || 'textbox';
-      if (el.tagName === 'TEXTAREA') return 'textbox';
-      if (el.tagName === 'SELECT') return 'combobox';
-      if (el.tagName === 'IMG') return 'img';
-      if (el.tagName.match(/^H[1-6]$/)) return 'heading';
-      return null;
-    }).catch(() => null);
-    
-    // Get accessible name
-    const name = await element.evaluate((el: any) => {
-      return el.getAttribute('aria-label') 
-        || el.getAttribute('aria-labelledby') 
-        || el.getAttribute('placeholder')
-        || el.getAttribute('title')
-        || el.textContent?.slice(0, 100)
-        || '';
-    }).catch(() => '');
-    
-    // Check if interactive
-    const isInteractive = role && ['button', 'link', 'textbox', 'combobox', 'checkbox', 'radio', 'menuitem', 'tab', 'switch'].includes(role);
-    
-    if (interactiveOnly && !isInteractive) {
-      // Still recurse for children
-      const children = await element.locator(':scope > *').all();
-      const childSnapshots = [];
-      for (const child of children) {
-        const childSnap = await buildNode(child, depth + 1);
-        if (childSnap) childSnapshots.push(childSnap);
-      }
-      return childSnapshots.join('');
-    }
-    
-    // Assign ref to interactive elements
-    let ref = '';
-    let selector = '';
-    if (isInteractive) {
-      const refId = `e${refCounter++}`;
-      ref = `@${refId}`;
-      
-      // Build stable selector
-      const testId = await element.getAttribute('data-testid').catch(() => null);
-      const id = await element.getAttribute('id').catch(() => null);
-      if (testId) {
-        selector = `[data-testid="${testId}"]`;
-      } else if (id) {
-        selector = `#${id}`;
-      } else {
-        // Use nth-of-type for position-based selector
-        const tagName = await element.evaluate((el: any) => el.tagName.toLowerCase());
-        selector = `${tagName}:nth-of-type(${await element.evaluate((el: any) => {
-          let i = 1;
-          let sibling = el.previousElementSibling;
-          while (sibling) {
-            if (sibling.tagName === el.tagName) i++;
-            sibling = sibling.previousElementSibling;
-          }
-          return i;
-        })})`;
-      }
-      refMap.set(refId, selector);
-    }
-    
-    // Build output line
-    const indent = '  '.repeat(depth);
-    const attrs = [];
-    const inputType = await element.getAttribute('type').catch(() => null);
-    if (inputType) attrs.push(`type="${inputType}"`);
-    const placeholder = await element.getAttribute('placeholder').catch(() => null);
-    if (placeholder) attrs.push(`placeholder="${placeholder.slice(0, 30)}"`);
-    const href = await element.getAttribute('href').catch(() => null);
-    if (href) attrs.push(`href`);
-    
-    let line = `${indent}${ref} [${role || tag}]`;
-    if (name.trim()) line += ` "${name.trim().slice(0, 50)}"`;
-    if (attrs.length) line += ` ${attrs.join(' ')}`;
-    
-    // Get children if container
-    const children = await element.locator(':scope > *').all();
-    const childLines = [];
-    for (const child of children) {
-      const childLine = await buildNode(child, depth + 1);
-      if (childLine && !childLine.startsWith(indent + '  @')) {
-        // Only include non-ref children if we're not interactive-only mode
-        if (!interactiveOnly) childLines.push(childLine);
-      } else if (childLine) {
-        childLines.push(childLine);
-      }
-    }
-    
-    if (childLines.length) {
-      return line + '\n' + childLines.join('\n');
-    }
-    return line;
-  };
-  
-  // Get body and build tree
-  const body = await page.locator('body');
-  const snapshot = await buildNode(body, 0);
-  
-  return { snapshot: snapshot || '(empty page)', refMap };
-}
-
-// Execute browser command
-async function browserCommand(sessionId: string, command: string, args: string[]): Promise<string> {
-  const session = browserSessions.get(sessionId);
-  if (!session) return `Session not found: ${sessionId}`;
-  
-  const page = session.page;
-  
-  switch (command) {
-    case 'open':
-    case 'navigate':
-    case 'goto': {
-      const url = args[0];
-      if (!url) return 'Usage: open <url>';
-      await page.goto(url, { waitUntil: 'networkidle' });
-      return `Opened: ${page.url()}`;
-    }
-    
-    case 'snapshot': {
-      const interactiveOnly = !args.includes('--full');
-      const { snapshot, refMap } = await buildSnapshot(page, interactiveOnly);
-      session.refMap = refMap;
-      return `Page snapshot:\n\n${snapshot}\n\nUse @eN refs to interact with elements.`;
-    }
-    
-    case 'click': {
-      const target = args[0];
-      if (!target) return 'Usage: click <@ref or selector>';
-      const selector = target.startsWith('@') ? session.refMap.get(target.slice(1)) || target : target;
-      await page.locator(selector).first().click();
-      return `Clicked: ${target}`;
-    }
-    
-    case 'fill':
-    case 'type': {
-      const target = args[0];
-      const text = args.slice(1).join(' ');
-      if (!target || !text) return `Usage: ${command} <@ref or selector> <text>`;
-      const selector = target.startsWith('@') ? session.refMap.get(target.slice(1)) || target : target;
-      await page.locator(selector).first().fill(text);
-      return `${command === 'fill' ? 'Filled' : 'Typed'} "${text}" into ${target}`;
-    }
-    
-    case 'press': {
-      const key = args[0];
-      if (!key) return 'Usage: press <key> (Enter, Escape, Tab, etc.)';
-      await page.keyboard.press(key as any);
-      return `Pressed: ${key}`;
-    }
-    
-    case 'screenshot': {
-      const fullPage = args.includes('--full');
-      const buffer = await page.screenshot({ fullPage, type: 'png' });
-      return `[screenshot:${buffer.toString('base64')}]`;
-    }
-    
-    case 'scroll': {
-      const direction = args[0] || 'down';
-      if (direction === 'bottom') {
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      } else {
-        const amount = parseInt(args[1] || '500');
-        await page.mouse.wheel(0, direction === 'up' ? -amount : amount);
-      }
-      return `Scrolled: ${direction}`;
-    }
-    
-    case 'wait': {
-      const ms = parseInt(args[0] || '1000');
-      await page.waitForTimeout(ms);
-      return `Waited: ${ms}ms`;
-    }
-    
-    case 'eval': {
-      const script = args.join(' ');
-      if (!script) return 'Usage: eval <javascript>';
-      const result = await page.evaluate(script);
-      return `Result: ${JSON.stringify(result, null, 2)}`;
-    }
-    
-    case 'text':
-    case 'gettext': {
-      const bodyText = await page.evaluate(() => document.body.innerText);
-      return bodyText.slice(0, 3000);
-    }
-    
-    default:
-      return `Unknown command: ${command}. Available: open, snapshot, click, fill, type, press, screenshot, scroll, wait, eval, text`;
-  }
-}
-
-// --- Tools ---
+// --- Tool result helpers ---
 function text(t: string) { return { content: [{ type: 'text' as const, text: t }], details: {} }; }
 function image(data: string) { return { content: [{ type: 'image' as const, data, mimeType: 'image/png' }], details: {} }; }
 
-function createTools(): ToolDefinition[] {
-  return [
-    {
-      name: 'anima_list', label: 'List Files',
-      description: 'List editable source files.',
-      promptSnippet: 'anima_list — list editable source files in ~/.cmd0/anima',
-      parameters: Type.Object({}),
-      async execute() {
-        return text(listAnimaFiles().join('\n'));
-      }
-    },
-    {
-      name: 'anima_read', label: 'Read File',
-      description: 'Read a source file from ~/.cmd0/anima.',
-      promptSnippet: 'anima_read — read a source file by filename',
-      parameters: Type.Object({ filename: Type.String() }),
-      async execute(_id: string, p: { filename: string }) {
-        try {
-          const fp = resolveAnimaPath(p.filename);
-          if (!existsSync(fp)) return text('Not found: ' + p.filename);
-          return text(readFileSync(fp, 'utf-8'));
-        } catch (e: any) {
-          return text(e.message);
-        }
-      }
-    },
-    {
-      name: 'anima_write', label: 'Write File',
-      description: 'Write a source file. Call anima_reload after. Only available during /0 self-modification.',
-      promptSnippet: 'anima_write — write a source file, call anima_reload after (requires /0)',
-      parameters: Type.Object({ filename: Type.String(), content: Type.String() }),
-      async execute(_id: string, p: { filename: string; content: string }) {
-        if (!animaUnlocked) return text('anima_write is only available during /0 self-modification.');
-        try {
-          writeFileSync(resolveAnimaPath(p.filename), p.content, 'utf-8');
-          dirtyAnimaFiles.add(p.filename);
-          return text(`Wrote ${p.filename}`);
-        } catch (e: any) {
-          return text(e.message);
-        }
-      }
-    },
-    {
-      name: 'anima_reload', label: 'Reload',
-      description: 'Auto-snapshots, copies only changed files to project, recompiles, restarts. Only available during /0 self-modification.',
-      promptSnippet: 'anima_reload — snapshot, recompile, and restart (requires /0)',
-      parameters: Type.Object({}),
-      async execute() {
-        if (!animaUnlocked) return text('anima_reload is only available during /0 self-modification.');
-        try {
-          doSnapshot(`auto-${Date.now()}`);
-          syncDirtyToProject();
-          execSync(TSC, { cwd: PROJECT_DIR, timeout: 30000 });
-          setTimeout(() => { app.relaunch(); app.exit(0); }, 500);
-          return text(`Recompiled (${dirtyAnimaFiles.size} files). Restarting...`);
-        } catch (e: any) {
-          return text(`Build failed: ${e.stdout?.toString() || e.message}`);
-        }
-      }
-    },
-    {
-      name: 'web_search', label: 'Search',
-      description: 'Search DuckDuckGo.',
-      promptSnippet: 'web_search — search the web via DuckDuckGo',
-      parameters: Type.Object({ query: Type.String() }),
-      async execute(_id: string, p: { query: string }, signal?: AbortSignal) {
-        try {
-          const r = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(p.query)}`, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; cmd0/1.0)' },
-            signal
-          });
-          const h = await r.text();
-          const res: string[] = [];
-          const rx = /<a rel="nofollow" class="result__a" href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
-          let m; let i = 0;
-          while ((m = rx.exec(h)) && i < 8) {
-            const t = m[2].replace(/<[^>]+>/g, '').trim();
-            const s = m[3].replace(/<[^>]+>/g, '').trim();
-            if (t) { res.push(`${t}\n${m[1]}\n${s}`); i++; }
-          }
-          return text(res.length ? res.join('\n\n') : 'No results.');
-        } catch (e: any) {
-          return text(`Search failed: ${e.message}`);
-        }
-      }
-    },
-    {
-      name: 'web_fetch', label: 'Fetch',
-      description: 'Fetch URL content.',
-      promptSnippet: 'web_fetch — fetch and extract text from a URL',
-      parameters: Type.Object({ url: Type.String() }),
-      async execute(_id: string, p: { url: string }, signal?: AbortSignal) {
-        try {
-          const u = validateFetchUrl(p.url);
-          const r = await fetch(u, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; cmd0/1.0)' },
-            signal: signal ?? AbortSignal.timeout(15000)
-          });
-          const h = await r.text();
-          const cleaned = h
-            .replace(/<script[\s\S]*?<\/script>/gi, '')
-            .replace(/<style[\s\S]*?<\/style>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .slice(0, 8000);
-          return text(cleaned);
-        } catch (e: any) {
-          return text(`Fetch failed: ${e.message}`);
-        }
-      }
-    },
-    {
-      name: 'notify', label: 'Notify',
-      description: 'Send a desktop notification.',
-      promptSnippet: 'notify — send a desktop notification',
-      parameters: Type.Object({ title: Type.String(), message: Type.String() }),
-      async execute(_id: string, p: { title: string; message: string }) {
-        try {
-          if (IS_MAC) {
-            await execFileAsync('osascript', [
-              '-e', `display notification ${JSON.stringify(p.message)} with title ${JSON.stringify(p.title)}`
-            ]);
-          } else {
-            await execFileAsync('notify-send', [p.title, p.message]);
-          }
-          return text('Sent.');
-        } catch (e: any) {
-          return text(`Failed: ${e.message}`);
-        }
-      }
-    },
-    {
-      name: 'screenshot', label: 'Screenshot',
-      description: 'Capture a region of the screen.',
-      promptSnippet: 'screenshot — capture a region of the screen',
-      parameters: Type.Object({}),
-      async execute() {
-        const b = await captureScreenshot();
-        if (b) return image(b);
-        return text('Failed.');
-      }
-    },
-    {
-      name: 'task_list', label: 'Tasks',
-      description: 'List tasks.',
-      promptSnippet: 'task_list — list all tasks and their status',
-      parameters: Type.Object({}),
-      async execute() {
-        const t = loadTasks();
-        if (!t.length) return text('No tasks.');
-        const lines = t.map(x =>
-          `[${x.status}] ${x.id}: ${x.description}`
-          + (x.type === 'recurring' ? ` (${x.intervalMinutes}m)` : '')
-          + (x.lastRun ? ` last:${x.lastRun}` : '')
-        );
-        return text(lines.join('\n'));
-      }
-    },
-    {
-      name: 'task_add', label: 'Add Task',
-      description: 'Add task.',
-      promptSnippet: 'task_add — add a one-time or recurring task',
-      parameters: Type.Object({
-        description: Type.String(),
-        type: Type.Union([Type.Literal('once'), Type.Literal('recurring')]),
-        intervalMinutes: Type.Optional(Type.Number())
-      }),
-      async execute(_id: string, p: { description: string; type: 'once' | 'recurring'; intervalMinutes?: number }) {
-        const t = addTask(reqStr(p.description, 'desc', MAX_TASK), p.type, p.intervalMinutes);
-        return text(`Added ${t.id}: ${t.description}`);
-      }
-    },
-    {
-      name: 'task_complete', label: 'Complete',
-      description: 'Complete task.',
-      promptSnippet: 'task_complete — mark a task as done',
-      parameters: Type.Object({ id: Type.String() }),
-      async execute(_id: string, p: { id: string }) {
-        completeTask(p.id);
-        return text(`Done: ${p.id}`);
-      }
-    },
-    {
-      name: 'task_remove', label: 'Remove',
-      description: 'Remove task.',
-      promptSnippet: 'task_remove — remove a task by id',
-      parameters: Type.Object({ id: Type.String() }),
-      async execute(_id: string, p: { id: string }) {
-        removeTask(p.id);
-        return text(`Removed: ${p.id}`);
-      }
-    },
-    // --- Browser Automation (Unified Tool) ---
-    {
-      name: 'browser', label: 'Browser',
-      description: 'Browser automation using snapshot-based workflow. Start session, then use commands: open, snapshot, click, fill, type, press, screenshot, scroll, wait, eval, text. Prefer using @eN refs from snapshots over CSS selectors.',
-      promptSnippet: 'browser — browser automation with snapshot workflow',
-      parameters: Type.Object({
-        sessionId: Type.Optional(Type.String({ description: 'Session ID (omit to start new session)' })),
-        action: Type.Union([
-          Type.Literal('start'),
-          Type.Literal('open'),
-          Type.Literal('snapshot'),
-          Type.Literal('click'),
-          Type.Literal('fill'),
-          Type.Literal('type'),
-          Type.Literal('press'),
-          Type.Literal('screenshot'),
-          Type.Literal('scroll'),
-          Type.Literal('wait'),
-          Type.Literal('eval'),
-          Type.Literal('text'),
-          Type.Literal('close')
-        ]),
-        args: Type.Optional(Type.Array(Type.String(), { description: 'Command arguments' })),
-        headless: Type.Optional(Type.Boolean({ description: 'For start action: run headless' }))
-      }),
-      async execute(_id: string, p: { sessionId?: string; action: string; args?: string[]; headless?: boolean }) {
-        // Start new session if needed
-        if (p.action === 'start' || !p.sessionId) {
-          if (p.action !== 'start' && !p.sessionId) {
-            return text('No session ID provided. Start a session first with: browser action=start');
-          }
-          
-          try {
-            const browser = await chromium.launch({
-              headless: p.headless ?? false,
-              slowMo: p.headless ? 0 : 100,
-              args: ['--disable-blink-features=AutomationControlled']
-            });
-            
-            const context = await browser.newContext({
-              viewport: { width: 1280, height: 800 },
-              userAgent: IS_MAC
-                ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            });
-            
-            const page = await context.newPage();
-            
-            const sessionId = generateSessionId();
-            const session: BrowserSession = {
-              id: sessionId,
-              browser,
-              context,
-              page,
-              refMap: new Map(),
-              createdAt: Date.now()
-            };
-            
-            browserSessions.set(sessionId, session);
-            
-            if (p.action === 'start') {
-              return text(`Browser started: ${sessionId}\nHeadless: ${p.headless ?? false}\n\nNext: browser sessionId=${sessionId} action=open args=["https://example.com"]`);
-            }
-            
-            // Auto-set sessionId for non-start actions
-            p.sessionId = sessionId;
-          } catch (e: any) {
-            return text(`Failed to start browser: ${e.message}`);
-          }
-        }
-        
-        const sessionId = p.sessionId!;
-        
-        // Handle close
-        if (p.action === 'close') {
-          const session = browserSessions.get(sessionId);
-          if (!session) return text(`Session not found: ${sessionId}`);
-          await session.context.close();
-          await session.browser.close();
-          browserSessions.delete(sessionId);
-          return text(`Closed: ${sessionId}`);
-        }
-        
-        // Execute command
-        const args = p.args || [];
-        const result = await browserCommand(sessionId, p.action, args);
-        
-        // Check if result is a screenshot
-        if (result.startsWith('[screenshot:')) {
-          const b64 = result.slice(12, -1);
-          return image(b64);
-        }
-        
-        return text(result);
-      }
-    },
-  ];
+// --- Feature context (passed to all feature modules) ---
+function buildFeatureContext(): FeatureContext {
+  return {
+    IS_MAC, IS_LINUX,
+    PROJECT_DIR, CMD0_DIR, ANIMA_DIR, DATA_DIR, TASKS_FILE, TSC,
+    getWin: () => win,
+    dirtyAnimaFiles,
+    isAnimaUnlocked: () => animaUnlocked,
+    text, image,
+    resolveAnimaPath, listAnimaFiles, doSnapshot, syncDirtyToProject,
+    validateFetchUrl,
+    loadTasks, addTask, completeTask, removeTask,
+    reqStr, MAX_TASK,
+    captureScreenshot,
+  };
 }
 
 // --- Screenshot ---
@@ -1080,6 +611,11 @@ async function initAgent(key: string, modelId?: string) {
   });
   await rl.reload();
 
+  const cfg = loadConfig();
+  const { tools, onReady, cleanup } = loadFeatures(buildFeatureContext(), cfg.features || {});
+  featureCleanup = cleanup;
+  featureOnReady = onReady;
+
   const result = await createAgentSession({
     cwd: PROJECT_DIR,
     agentDir,
@@ -1089,7 +625,7 @@ async function initAgent(key: string, modelId?: string) {
     modelRegistry: new ModelRegistry(authStorage),
     model,
     thinkingLevel: 'low',
-    customTools: createTools(),
+    customTools: tools,
     resourceLoader: rl
   });
   session = result.session;
@@ -1219,6 +755,7 @@ ipcMain.on('agent:set-key', async (_e, key: string, model?: string) => {
   if (!win) return;
   try {
     await initAgent(reqStr(key, 'Key', MAX_KEY), optStr(model, 'Model', MAX_MODEL));
+    if (featureOnReady) featureOnReady();
     win.webContents.send('agent:ready');
   } catch (e) {
     win.webContents.send('agent:key-error', String(e));
@@ -1320,18 +857,9 @@ ipcMain.handle('snapshot', (_e, name: string) => doSnapshot(name));
 ipcMain.handle('restore-snapshot', (_e, name: string) => doRestore(name));
 ipcMain.handle('list-snapshots', () => listSnaps());
 
-// --- Cleanup on exit ---
-async function cleanupBrowsers() {
-  for (const [id, session] of browserSessions) {
-    try {
-      await session.context.close();
-      await session.browser.close();
-    } catch (e) {
-      console.error(`[cmd0] Failed to close browser ${id}:`, e);
-    }
-  }
-  browserSessions.clear();
-}
+// --- Feature state (set by initAgent) ---
+let featureCleanup: (() => Promise<void>) | null = null;
+let featureOnReady: (() => void) | null = null;
 
 // --- Toggle helper ---
 function toggleWindow() {
@@ -1429,6 +957,7 @@ if (!CLI_MODE) app.whenReady().then(async () => {
     try {
       await initAgent(key, cfg.model || undefined);
       win?.webContents.once('did-finish-load', () => {
+        if (featureOnReady) featureOnReady();
         win!.webContents.send('agent:ready');
       });
     } catch (e) {
@@ -1451,9 +980,9 @@ if (!CLI_MODE) app.whenReady().then(async () => {
 app.on('will-quit', async () => {
   stopDaemon();
   try { unlinkSync(PID_FILE); } catch {}
-  globalShortcut.unregisterAll(); 
-  await cleanupBrowsers();
-  if (settingsManager) await settingsManager.flush(); 
-  session?.dispose(); 
+  globalShortcut.unregisterAll();
+  if (featureCleanup) await featureCleanup();
+  if (settingsManager) await settingsManager.flush();
+  session?.dispose();
 });
 app.on('window-all-closed', () => app.quit());
