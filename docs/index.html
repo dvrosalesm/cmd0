@@ -3,28 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="A desktop AI agent that lives in your menubar. Summon it with a keystroke.">
+  <meta name="description" content="A desktop AI agent that lives in your menubar. Summon it with a keystroke. Search the web, run commands, automate browsers, and extend with pi extensions like pi-notetaker.">
   <meta property="og:title" content="cmd0 — Desktop AI Agent">
-  <meta property="og:description" content="A desktop AI agent that lives in your menubar. Summon it with a keystroke.">
+  <meta property="og:description" content="A desktop AI agent that lives in your menubar. Summon it with a keystroke. Search the web, run commands, automate browsers, and extend with pi extensions like pi-notetaker.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="theme-color" content="#0a0a0c">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23141418'/%3E%3Ctext x='50' y='65' font-size='50' text-anchor='middle' fill='white'%3E⌘%3C/text%3E%3C/svg%3E">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23000'/%3E%3Ctext x='50' y='68' font-size='55' text-anchor='middle' fill='white' font-family='system-ui'%3E⌘%3C/text%3E%3C/svg%3E">
   <title>cmd0 — Desktop AI Agent</title>
   <style>
+    @property --gradient-angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+    
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     :root {
-      --bg: #0a0a0c;
-      --bg-elevated: #141418;
+      --bg: #000000;
+      --bg-elevated: #0a0a0a;
+      --bg-card: #111111;
       --border: rgba(255, 255, 255, 0.08);
-      --text: rgba(255, 255, 255, 0.9);
+      --border-hover: rgba(255, 255, 255, 0.15);
+      --text: #ffffff;
       --text-muted: rgba(255, 255, 255, 0.5);
-      --accent: #fff;
+      --text-dim: rgba(255, 255, 255, 0.3);
+      --accent: #ffffff;
+      --glow: rgba(255, 255, 255, 0.1);
     }
     
-    html, body {
-      height: 100%;
+    html {
+      scroll-behavior: smooth;
+    }
+    
+    body {
+      min-height: 100vh;
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -32,472 +46,1264 @@
       overflow-x: hidden;
     }
     
+    /* Animated gradient mesh background */
+    .gradient-mesh {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+      background: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255,255,255,0.08), transparent),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(255,255,255,0.03), transparent),
+        radial-gradient(ellipse 40% 60% at 20% 60%, rgba(255,255,255,0.02), transparent);
+      animation: mesh-rotate 30s ease-in-out infinite;
+    }
+    
+    @keyframes mesh-rotate {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      25% { transform: translate(-2%, 1%) rotate(2deg); }
+      50% { transform: translate(1%, -1%) rotate(-1deg); }
+      75% { transform: translate(-1%, 2%) rotate(1deg); }
+    }
+    
+    /* Grid pattern overlay */
+    .grid-pattern {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.015;
+      background-image: 
+        linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+    
+    /* Noise texture */
     .noise {
       position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       pointer-events: none;
-      opacity: 0.03;
+      z-index: 2;
+      opacity: 0.02;
       background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
     }
     
+    /* Container */
     .container {
-      max-width: 720px;
+      position: relative;
+      z-index: 10;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 80px 24px;
+      padding: 0 24px;
     }
     
-    header {
+    /* Navigation */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
+    }
+    
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    
+    .nav-logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+    
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+    
+    .nav-links a:hover {
+      color: var(--text);
+    }
+    
+    .nav-cta {
+      padding: 10px 20px;
+      background: var(--text);
+      color: var(--bg);
+      font-size: 14px;
+      font-weight: 500;
+      text-decoration: none;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    
+    .nav-cta:hover {
+      opacity: 0.85;
+    }
+    
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 100px 0 60px;
+      position: relative;
+    }
+    
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+      animation: fade-in-up 0.8s ease-out;
+    }
+    
+    .hero-badge-dot {
+      width: 6px;
+      height: 6px;
+      background: #22c55e;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .hero h1 {
+      font-size: clamp(48px, 8vw, 80px);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      margin-bottom: 24px;
+      animation: fade-in-up 0.8s ease-out 0.1s both;
+    }
+    
+    .hero h1 span {
+      display: block;
+      background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.6) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .hero-subtitle {
+      font-size: clamp(18px, 2.5vw, 22px);
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 40px;
+      animation: fade-in-up 0.8s ease-out 0.2s both;
+    }
+    
+    .hero-cta {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 80px;
+      animation: fade-in-up 0.8s ease-out 0.3s both;
+      flex-wrap: wrap;
+    }
+    
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 32px;
+      background: var(--text);
+      color: var(--bg);
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 12px;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px rgba(255,255,255,0.15);
+    }
+    
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 32px;
+      background: transparent;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.03);
+      border-color: var(--border-hover);
+    }
+    
+    @keyframes fade-in-up {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    /* Demo Window */
+    .demo-section {
+      margin-bottom: 160px;
+    }
+    
+    .demo-window {
+      max-width: 800px;
+      margin: 0 auto;
+      background: rgba(17, 17, 17, 0.8);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 
+        0 0 0 1px rgba(255,255,255,0.05),
+        0 40px 80px rgba(0,0,0,0.6),
+        0 0 120px rgba(255,255,255,0.03);
+      animation: float 6s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    
+    .demo-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 20px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    .demo-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .demo-dot:nth-child(1) { background: #ff5f57; }
+    .demo-dot:nth-child(2) { background: #febc2e; }
+    .demo-dot:nth-child(3) { background: #28c840; }
+    
+    .demo-content {
+      padding: 32px;
+    }
+    
+    .chat-bubble {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      font-size: 15px;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.9);
+      max-width: 90%;
+    }
+    
+    .chat-bubble strong {
+      color: #fff;
+      font-weight: 500;
+    }
+    
+    .chat-input {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      color: rgba(255,255,255,0.3);
+    }
+    
+    .chat-input svg {
+      flex-shrink: 0;
+      opacity: 0.5;
+    }
+    
+    .cursor-blink {
+      display: inline-block;
+      width: 2px;
+      height: 18px;
+      background: rgba(255,255,255,0.5);
+      animation: cursor-blink 1s step-end infinite;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+    
+    @keyframes cursor-blink {
+      50% { opacity: 0; }
+    }
+    
+    /* Section styling */
+    section {
+      margin-bottom: 160px;
+    }
+    
+    .section-header {
       text-align: center;
       margin-bottom: 80px;
     }
     
-    .logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-    
-    .logo-icon {
-      width: 48px;
-      height: 48px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
+    .section-header h2 {
+      font-size: 14px;
       font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
     }
     
-    h1 {
-      font-size: 56px;
+    .section-header p {
+      font-size: clamp(32px, 5vw, 48px);
       font-weight: 700;
       letter-spacing: -0.03em;
-      margin-bottom: 16px;
+      line-height: 1.2;
     }
     
-    .tagline {
-      font-size: 20px;
-      color: var(--text-muted);
-      max-width: 480px;
-      margin: 0 auto;
+    /* Features Grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
     }
     
-    .cta {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 32px;
-      padding: 12px 24px;
-      background: var(--accent);
-      color: var(--bg);
-      font-size: 15px;
-      font-weight: 500;
-      text-decoration: none;
-      border-radius: 8px;
-      transition: opacity 0.2s;
+    @media (max-width: 1024px) {
+      .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
     
-    .cta:hover { opacity: 0.9; }
-    
-    .mockup {
-      display: flex;
-      justify-content: center;
-      margin: -20px 0 60px;
-      padding: 0 20px;
+    @media (max-width: 640px) {
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
     }
     
-    .mockup-window {
-      width: 100%;
-      max-width: 400px;
-      background: rgba(20, 20, 30, 0.9);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
-    }
-    
-    .mockup-chat {
-      min-height: 80px;
-      margin-bottom: 12px;
-    }
-    
-    .mockup-bubble {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 12px 14px;
-      font-size: 13px;
-      color: rgba(255, 255, 255, 0.85);
-      line-height: 1.5;
-    }
-    
-    .type-text {
-      animation: typing 4s steps(50, end) infinite;
-      overflow: hidden;
-      display: inline-block;
-      max-width: 100%;
-      white-space: nowrap;
-      border-right: 2px solid transparent;
-    }
-    
-    .cursor {
-      display: inline-block;
-      animation: blink 1s step-end infinite;
-      color: rgba(255, 255, 255, 0.5);
-      margin-left: 2px;
-    }
-    
-    @keyframes typing {
-      0%, 100% { width: 0; }
-      20%, 80% { width: 100%; }
-    }
-    
-    @keyframes blink {
-      50% { opacity: 0; }
-    }
-    
-    .mockup-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      height: 44px;
-      padding: 0 12px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      color: rgba(255, 255, 255, 0.3);
-    }
-    
-    .mockup-bar svg {
-      flex-shrink: 0;
-    }
-    
-    .mockup-input {
-      flex: 1;
-      font-size: 15px;
-    }
-    
-    @media (max-width: 600px) {
-      .mockup { margin: -10px 0 40px; }
-      .mockup-window { max-width: 100%; }
-    }
-    
-    .cta-secondary {
-      background: transparent;
+    .feature-card {
+      background: var(--bg-card);
       border: 1px solid var(--border);
-      color: var(--text);
-      margin-left: 12px;
+      border-radius: 20px;
+      padding: 32px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
     }
     
-    section {
-      margin-bottom: 64px;
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
     }
     
-    h2 {
-      font-size: 14px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--text-muted);
+    .feature-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-4px);
+    }
+    
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+    
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
       margin-bottom: 24px;
     }
     
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
+    .feature-card h3 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      letter-spacing: -0.01em;
     }
     
-    .feature {
-      padding: 20px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-    }
-    
-    .feature h3 {
+    .feature-card p {
       font-size: 15px;
-      font-weight: 500;
-      margin-bottom: 8px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    
+    /* Workflow Steps */
+    .workflow {
+      display: flex;
+      flex-direction: column;
+      gap: 80px;
+    }
+    
+    .workflow-step {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+    
+    @media (max-width: 768px) {
+      .workflow-step {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+      .workflow-step:nth-child(even) .workflow-content {
+        order: -1;
+      }
+    }
+    
+    .workflow-step:nth-child(even) {
+      direction: rtl;
+    }
+    
+    .workflow-step:nth-child(even) > * {
+      direction: ltr;
+    }
+    
+    .workflow-number {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+      letter-spacing: 0.1em;
+    }
+    
+    .workflow h3 {
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: 20px;
+    }
+    
+    .workflow p {
+      font-size: 17px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+    
+    .workflow-visual {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 32px;
+      min-height: 300px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    
+    /* Terminal demo */
+    .terminal {
+      background: #0d0d0d;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      overflow: hidden;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 13px;
+    }
+    
+    .terminal-header {
       display: flex;
       align-items: center;
       gap: 8px;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
     }
     
-    .feature p {
-      font-size: 14px;
-      color: var(--text-muted);
-      line-height: 1.5;
+    .terminal-body {
+      padding: 20px;
+      line-height: 1.8;
     }
     
-    .key {
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 8px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-      font-family: SF Mono, Monaco, monospace;
-      font-size: 13px;
-      font-weight: 500;
-    }
-    
-    .demo {
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px;
-      font-family: SF Mono, Monaco, monospace;
-      font-size: 13px;
-      overflow-x: auto;
-    }
-    
-    .demo-line {
+    .terminal-line {
       display: flex;
       gap: 12px;
-      margin-bottom: 8px;
-      color: var(--text-muted);
+      color: rgba(255,255,255,0.6);
     }
     
-    .demo-line:last-child { margin-bottom: 0; }
-    .prompt { color: var(--text); }
-    .cmd { color: #7dd3fc; }
-    .response { color: #86efac; }
+    .terminal-prompt { color: #22c55e; }
+    .terminal-cmd { color: #60a5fa; }
+    .terminal-output { color: rgba(255,255,255,0.5); }
+    .terminal-comment { color: #6b7280; }
     
-    .install {
-      background: var(--bg-elevated);
+    /* Install section */
+    .install-card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
+      border-radius: 24px;
+      padding: 48px;
+      position: relative;
+      overflow: hidden;
     }
     
-    pre {
-      font-family: SF Mono, Monaco, monospace;
-      font-size: 13px;
+    .install-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 200px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    }
+    
+    .code-block {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 24px;
+      margin: 32px 0;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 14px;
       overflow-x: auto;
     }
     
-    code {
-      font-family: SF Mono, Monaco, monospace;
-      font-size: 13px;
-      background: rgba(255, 255, 255, 0.05);
-      padding: 2px 6px;
-      border-radius: 4px;
+    .code-block code {
+      color: rgba(255,255,255,0.8);
+      line-height: 1.8;
     }
     
-    .install pre {
-      background: rgba(0, 0, 0, 0.3);
-      padding: 16px;
-      border-radius: 8px;
-      margin-bottom: 16px;
+    .install-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      margin-top: 40px;
+    }
+    
+    @media (max-width: 768px) {
+      .install-steps {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .install-steps {
+        grid-template-columns: 1fr;
+      }
     }
     
     .install-step {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 16px;
-      font-size: 14px;
+      text-align: center;
     }
     
-    .install-step:last-child { margin-bottom: 0; }
-    
-    .step-num {
-      flex-shrink: 0;
-      width: 24px;
-      height: 24px;
-      background: rgba(255, 255, 255, 0.1);
+    .install-step-num {
+      width: 40px;
+      height: 40px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
-      font-weight: 500;
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0 auto 16px;
     }
     
-    .step-content { color: var(--text-muted); }
-    .step-content strong { color: var(--text); font-weight: 500; }
+    .install-step p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
     
+    /* Commands section */
+    .commands-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    
+    @media (max-width: 640px) {
+      .commands-list {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .command-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      transition: all 0.2s;
+    }
+    
+    .command-item:hover {
+      border-color: var(--border-hover);
+      background: rgba(255,255,255,0.02);
+    }
+    
+    .command-key {
+      display: inline-flex;
+      padding: 6px 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+    }
+    
+    .command-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    
+    /* Footer */
     footer {
-      text-align: center;
+      border-top: 1px solid var(--border);
+      padding: 80px 0 40px;
+    }
+    
+    .footer-content {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 60px;
+      margin-bottom: 60px;
+    }
+    
+    @media (max-width: 768px) {
+      .footer-content {
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .footer-content {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .footer-brand {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .footer-brand .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    
+    .footer-brand p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      max-width: 280px;
+    }
+    
+    .footer-links h4 {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+    }
+    
+    .footer-links ul {
+      list-style: none;
+    }
+    
+    .footer-links li {
+      margin-bottom: 12px;
+    }
+    
+    .footer-links a {
+      font-size: 14px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    
+    .footer-links a:hover {
+      color: var(--text);
+    }
+    
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       padding-top: 40px;
       border-top: 1px solid var(--border);
-      color: var(--text-muted);
-      font-size: 14px;
+      font-size: 13px;
+      color: var(--text-dim);
+      flex-wrap: wrap;
+      gap: 16px;
     }
     
-    footer a {
-      color: var(--text);
+    .footer-bottom a {
+      color: var(--text-muted);
       text-decoration: none;
     }
     
-    footer a:hover { text-decoration: underline; }
+    /* Mobile nav toggle */
+    .mobile-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+    }
     
-    @media (max-width: 600px) {
-      h1 { font-size: 40px; }
-      .tagline { font-size: 18px; }
-      .container { padding: 60px 20px; }
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+      }
+      .mobile-toggle {
+        display: block;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="gradient-mesh"></div>
+  <div class="grid-pattern"></div>
   <div class="noise"></div>
   
   <div class="container">
-    <header>
-      <div class="logo">
-        <div class="logo-icon">⌘0</div>
+    <nav>
+      <div class="nav-logo">
+        <div class="nav-logo-icon">⌘</div>
+        cmd0
       </div>
-      <h1>cmd0</h1>
-      <p class="tagline">A desktop AI agent that lives on your screen. Trigger with <span class="key">⌘0</span> or <span class="key">Super+-</span>. Ask it anything.</p>
-      <div>
-        <a href="#install" class="cta">Install</a>
-        <a href="https://github.com/dvrosalesm/cmd0" class="cta cta-secondary">GitHub →</a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#extensions">Extensions</a>
+        <a href="#workflow">How it works</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/dvrosalesm/cmd0" target="_blank">GitHub</a>
+        <a href="#install" class="nav-cta">Get Started</a>
       </div>
-    </header>
+      <button class="mobile-toggle" aria-label="Menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12h18M3 6h18M3 18h18"/>
+        </svg>
+      </button>
+    </nav>
     
-    <div class="mockup">
-      <div class="mockup-window">
-        <div class="mockup-chat">
-          <div class="mockup-bubble">
-            <span class="type-text">Search for Rust async runtime comparisons...</span><span class="cursor">|</span>
+    <section class="hero">
+      <div class="hero-badge">
+        <span class="hero-badge-dot"></span>
+        Now with <a href="#extensions" style="color: inherit; text-decoration: underline; text-underline-offset: 2px;">pi-notetaker</a> extension
+      </div>
+      <h1>
+        <span>Your AI agent</span>
+        <span>lives in the menubar</span>
+      </h1>
+      <p class="hero-subtitle">
+        A desktop companion that reads files, runs commands, browses the web, and modifies its own code. Summon with <kbd>Cmd+0</kbd> or <kbd>Super+0</kbd>.
+      </p>
+      <div class="hero-cta">
+        <a href="#install" class="btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+          </svg>
+          Install cmd0
+        </a>
+        <a href="https://github.com/dvrosalesm/cmd0" target="_blank" class="btn-secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          View on GitHub
+        </a>
+      </div>
+    </section>
+    
+    <section class="demo-section">
+      <div class="demo-window">
+        <div class="demo-header">
+          <div class="demo-dot"></div>
+          <div class="demo-dot"></div>
+          <div class="demo-dot"></div>
+        </div>
+        <div class="demo-content">
+          <div class="chat-bubble">
+            <strong>cmd0</strong> can help you with a wide range of tasks — from searching the web and automating browsers to running terminal commands and managing background tasks. I can even modify my own source code when you use the <code>/0</code> command.
           </div>
-        </div>
-        <div class="mockup-bar">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-          <div class="mockup-input">Say something...</div>
-        </div>
-      </div>
-    </div>
-    
-    <section>
-      <h2>Features</h2>
-      <div class="feature-grid">
-        <div class="feature">
-          <h3>🔍 Web Search</h3>
-          <p>Search DuckDuckGo and fetch any URL. Research without leaving your flow.</p>
-        </div>
-        <div class="feature">
-          <h3>🌐 Browser Control</h3>
-          <p>Automate Chrome via Playwright. Navigate, click, fill forms, take screenshots.</p>
-        </div>
-        <div class="feature">
-          <h3>💻 System Access</h3>
-          <p>Run bash commands, read/write files, send desktop notifications.</p>
-        </div>
-        <div class="feature">
-          <h3>🖼️ Screenshots</h3>
-          <p>Capture any screen region. Paste or attach images to your prompts.</p>
-        </div>
-        <div class="feature">
-          <h3>🔄 Self-Modification</h3>
-          <p>cmd0 can edit its own source code. Use <code>/0</code> to evolve the agent.</p>
-        </div>
-        <div class="feature">
-          <h3>⏰ Task Daemon</h3>
-          <p>Schedule recurring or one-time tasks. Background runner checks every minute.</p>
-        </div>
-        <div class="feature">
-          <h3>💾 Snapshots</h3>
-          <p>Save and restore complete state. Experiment freely, roll back anytime.</p>
-        </div>
-        <div class="feature">
-          <h3>🔐 Safe Mode</h3>
-          <p>Start with <code>--safe</code> to restore base files and disable self-modification.</p>
+          <div class="chat-bubble" style="background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.2);">
+            <strong>You:</strong> Search for the latest Rust async runtime comparisons and fetch the most detailed article<span class="cursor-blink"></span>
+          </div>
+          <div class="chat-input">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+            <span>Type a command or ask anything...</span>
+          </div>
         </div>
       </div>
     </section>
     
-    <section>
-      <h2>How it works</h2>
-      <div class="demo">
-        <div class="demo-line"><span class="prompt">$</span> <span class="cmd">Press ⌘0 / Super+-</span></div>
-        <div class="demo-line"><span class="response">→ Floating chat appears</span></div>
-        <div class="demo-line"><span class="prompt">$</span> <span>"Search for the latest AI news"</span></div>
-        <div class="demo-line"><span class="response">→ web_search: "latest AI news"</span></div>
-        <div class="demo-line"><span class="response">→ [results appear in chat]</span></div>
-        <div class="demo-line"><span class="prompt">$</span> <span class="cmd">/0 add a voice input button</span></div>
-        <div class="demo-line"><span class="response">→ anima_read, anima_write, anima_reload</span></div>
-        <div class="demo-line"><span class="response">→ [app restarts with new feature]</span></div>
+    <section id="features">
+      <div class="section-header">
+        <h2>Features</h2>
+        <p>Everything you need to<br>supercharge your workflow</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3>Web Search</h3>
+          <p>Search DuckDuckGo instantly and fetch any URL. Research without leaving your flow or opening a browser.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🌐</div>
+          <h3>Browser Control</h3>
+          <p>Automate Chrome via Playwright. Navigate sites, click elements, fill forms, and capture screenshots.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💻</div>
+          <h3>System Access</h3>
+          <p>Run bash commands, read and write files, send desktop notifications. Full access to your machine.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🖼️</div>
+          <h3>Screenshots</h3>
+          <p>Capture any screen region with one click. Attach images to your prompts for visual context.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔄</div>
+          <h3>Self-Modification</h3>
+          <p>Use <code>/0</code> to edit my own source code. I can evolve, add features, and fix bugs autonomously.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⏰</div>
+          <h3>Task Daemon</h3>
+          <p>Schedule recurring or one-time tasks. Background runner checks every minute and executes automatically.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💾</div>
+          <h3>Snapshots</h3>
+          <p>Save and restore complete state with <code>/snap</code>. Experiment freely, roll back anytime with <code>/restore</code>.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔐</div>
+          <h3>Safe Mode</h3>
+          <p>Start with <code>--safe</code> to restore base files and disable self-modification. Perfect for testing.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Instant Access</h3>
+          <p>Global hotkey summons the agent from anywhere. <kbd>Cmd+0</kbd> on macOS, <kbd>Super+0</kbd> on Linux.</p>
+        </div>
+        <div class="feature-card" style="grid-column: span 1; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.02) 100%); border-color: rgba(34, 197, 94, 0.2);">
+          <div class="feature-icon" style="background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.2);">🎙️</div>
+          <h3>Meeting Notes <span style="font-size: 12px; font-weight: 500; color: #22c55e; margin-left: 8px;">NEW</span></h3>
+          <p><a href="https://github.com/dvrosalesm/pi-notetaker" target="_blank" style="color: #22c55e; text-decoration: none; border-bottom: 1px solid rgba(34, 197, 94, 0.3);">pi-notetaker</a> extension — Record meetings, transcribe locally with Whisper, and generate AI summaries. All offline, all private.</p>
+        </div>
+      </div>
+    </section>
+    
+    <section id="extensions">
+      <div class="section-header">
+        <h2>Extensions</h2>
+        <p>Extend cmd0 with pi extensions</p>
+      </div>
+      <div class="install-card" style="margin-bottom: 0;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center;">
+          <div>
+            <h3 style="font-size: 28px; font-weight: 700; margin-bottom: 16px; letter-spacing: -0.02em;">pi-notetaker</h3>
+            <p style="font-size: 16px; color: var(--text-muted); line-height: 1.7; margin-bottom: 24px;">
+              A <strong>pi extension</strong> for effortless meeting notes. Record audio, transcribe locally with Whisper, and generate structured summaries using your active LLM — completely offline and private.
+            </p>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px;">
+              <span style="padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; font-size: 13px; color: var(--text-muted);">🎙️ Local Recording</span>
+              <span style="padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; font-size: 13px; color: var(--text-muted);">🧠 Whisper Transcription</span>
+              <span style="padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; font-size: 13px; color: var(--text-muted);">📝 AI Summaries</span>
+              <span style="padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 20px; font-size: 13px; color: var(--text-muted);">🔒 100% Offline</span>
+            </div>
+            <div class="terminal" style="margin-bottom: 24px;">
+              <div class="terminal-header">
+                <div style="width: 12px; height: 12px; background: #ff5f57; border-radius: 50%;"></div>
+                <div style="width: 12px; height: 12px; background: #febc2e; border-radius: 50%;"></div>
+                <div style="width: 12px; height: 12px; background: #28c840; border-radius: 50%;"></div>
+              </div>
+              <div class="terminal-body">
+                <div class="terminal-line">
+                  <span class="terminal-comment"># Quick setup</span>
+                </div>
+                <div class="terminal-line">
+                  <span class="terminal-prompt">$</span>
+                  <span class="terminal-cmd">/meeting setup</span>
+                </div>
+                <div class="terminal-line">
+                  <span class="terminal-output">→ Installs sox, whisper-cpp, downloads model</span>
+                </div>
+                <div class="terminal-line" style="margin-top: 8px;">
+                  <span class="terminal-prompt">$</span>
+                  <span class="terminal-cmd">/meeting start</span>
+                  <span>"Product Standup"</span>
+                </div>
+                <div class="terminal-line">
+                  <span class="terminal-prompt">$</span>
+                  <span class="terminal-cmd">/meeting stop</span>
+                </div>
+                <div class="terminal-line">
+                  <span class="terminal-output">→ Transcribed & summarized!</span>
+                </div>
+              </div>
+            </div>
+            <a href="https://github.com/dvrosalesm/pi-notetaker" target="_blank" class="btn-primary" style="display: inline-flex;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+              </svg>
+              Get pi-notetaker
+            </a>
+          </div>
+          <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 32px;">
+            <div style="font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 20px;">Commands</div>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                <span class="command-key" style="margin: 0;">/meeting start</span>
+                <span style="font-size: 13px; color: var(--text-muted);">Start recording</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                <span class="command-key" style="margin: 0;">/meeting stop</span>
+                <span style="font-size: 13px; color: var(--text-muted);">Stop & summarize</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                <span class="command-key" style="margin: 0;">/meeting list</span>
+                <span style="font-size: 13px; color: var(--text-muted);">View past meetings</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                <span class="command-key" style="margin: 0;">/meeting view</span>
+                <span style="font-size: 13px; color: var(--text-muted);">Read summary</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <section id="workflow">
+      <div class="section-header">
+        <h2>How it works</h2>
+        <p>Three steps to AI-powered<br>productivity</p>
+      </div>
+      <div class="workflow">
+        <div class="workflow-step">
+          <div class="workflow-content">
+            <div class="workflow-number">STEP 01</div>
+            <h3>Summon with a keystroke</h3>
+            <p>Press <kbd>Cmd+0</kbd> (macOS) or <kbd>Super+0</kbd> (Linux) from anywhere. A sleek floating chat appears instantly, ready for your commands.</p>
+            <div class="terminal">
+              <div class="terminal-header">
+                <div style="width: 12px; height: 12px; background: #ff5f57; border-radius: 50%;"></div>
+                <div style="width: 12px; height: 12px; background: #febc2e; border-radius: 50%;"></div>
+                <div style="width: 12px; height: 12px; background: #28c840; border-radius: 50%;"></div>
+              </div>
+              <div class="terminal-body">
+                <div class="terminal-line">
+                  <span class="terminal-prompt">$</span>
+                  <span class="terminal-cmd">Press Cmd+0 / Super+0</span>
+                </div>
+                <div class="terminal-line">
+                  <span class="terminal-output">→ Floating chat appears</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="workflow-visual">
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">⌘</div>
+                <div>
+                  <div style="font-size: 14px; font-weight: 600;">Global Hotkey</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">Works from any app</div>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">⚡</div>
+                <div>
+                  <div style="font-size: 14px; font-weight: 600;">Instant</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">No loading, no waiting</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="workflow-step">
+          <div class="workflow-content">
+            <div class="workflow-number">STEP 02</div>
+            <h3>Ask or command</h3>
+            <p>Natural language or specific tools. Search the web, run commands, automate browsers — or just ask questions. The agent picks the right tools automatically.</p>
+            <div class="terminal">
+              <div class="terminal-header">
+                <div style="width: 12px; height: 12px; background: #ff5f57; border-radius: 50%;"></div>
+                <div style="width: 12px; height: 12px; background: #febc2e; border-radius: 50%;"></div>
+                <div style="width: 12px; height: 12px; background: #28c840; border-radius: 50%;"></div>
+              </div>
+              <div class="terminal-body">
+                <div class="terminal-line">
+                  <span class="terminal-prompt">$</span>
+                  <span>"Find the latest AI news"</span>
+                </div>
+                <div class="terminal-line">
+                  <span class="terminal-comment">→ web_search: "latest AI news"</span>
+                </div>
+                <div class="terminal-line">
+                  <span class="terminal-output">→ [results stream in real-time]</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="workflow-visual">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+              <div style="padding: 20px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
+                <div style="font-size: 24px; margin-bottom: 8px;">🔍</div>
+                <div style="font-size: 13px; color: var(--text-muted);">Web Search</div>
+              </div>
+              <div style="padding: 20px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
+                <div style="font-size: 24px; margin-bottom: 8px;">🌐</div>
+                <div style="font-size: 13px; color: var(--text-muted);">Browser</div>
+              </div>
+              <div style="padding: 20px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
+                <div style="font-size: 24px; margin-bottom: 8px;">💻</div>
+                <div style="font-size: 13px; color: var(--text-muted);">Terminal</div>
+              </div>
+              <div style="padding: 20px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); text-align: center;">
+                <div style="font-size: 24px; margin-bottom: 8px;">⏰</div>
+                <div style="font-size: 13px; color: var(--text-muted);">Tasks</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="workflow-step">
+          <div class="workflow-content">
+            <div class="workflow-number">STEP 03</div>
+            <h3>Evolve the agent</h3>
+            <p>Use <code>/0</code> to modify my source code directly. Add features, change the UI, fix bugs — I can edit myself and restart with your changes applied.</p>
+            <div class="terminal">
+              <div class="terminal-header">
+                <div style="width: 12px; height: 12px; background: #ff5f57; border-radius: 50%;"></div>
+                <div style="width: 12px; height: 12px; background: #febc2e; border-radius: 50%;"></div>
+                <div style="width: 12px; height: 12px; background: #28c840; border-radius: 50%;"></div>
+              </div>
+              <div class="terminal-body">
+                <div class="terminal-line">
+                  <span class="terminal-prompt">$</span>
+                  <span class="terminal-cmd">/0</span>
+                  <span>add a voice input button</span>
+                </div>
+                <div class="terminal-line">
+                  <span class="terminal-comment">→ anima_read, anima_write, anima_reload</span>
+                </div>
+                <div class="terminal-line">
+                  <span class="terminal-output">→ [restarts with new feature]</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="workflow-visual">
+            <div style="text-align: center;">
+              <div style="font-size: 64px; margin-bottom: 16px;">🔄</div>
+              <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Self-Modification</div>
+              <div style="font-size: 14px; color: var(--text-muted);">The only limit is your imagination</div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
     
     <section id="install">
-      <h2>Install</h2>
-      <div class="install">
-        <pre><code># Clone and run the install script
-git clone https://github.com/dvrosalesm/cmd0.git
-cd cmd0
-./install.sh</code></pre>
-        <div class="install-step">
-          <span class="step-num">1</span>
-          <div class="step-content">Installs dependencies via <strong>npm</strong></div>
+      <div class="install-card">
+        <div class="section-header" style="margin-bottom: 40px;">
+          <h2>Get Started</h2>
+          <p>Install in seconds</p>
         </div>
-        <div class="install-step">
-          <span class="step-num">2</span>
-          <div class="step-content">Builds TypeScript and compiles the app</div>
+        
+        <div class="code-block">
+          <code># Clone the repository<br>git clone https://github.com/dvrosalesm/cmd0.git<br><br># Run the installer<br>cd cmd0<br>./install.sh</code>
         </div>
-        <div class="install-step">
-          <span class="step-num">3</span>
-          <div class="step-content">Registers shortcut — <strong>Cmd+0</strong> (macOS) or <strong>Super+-</strong> (Linux/Hyprland)</div>
-        </div>
-        <div class="install-step">
-          <span class="step-num">4</span>
-          <div class="step-content">Launches the agent in your menubar</div>
-        </div>
-      </div>
-    </section>
-    
-    <section>
-      <h2>Commands</h2>
-      <div class="feature-grid">
-        <div class="feature">
-          <h3><span class="key">/0</span></h3>
-          <p>Modify own source code. The agent reads, writes, and reloads itself.</p>
-        </div>
-        <div class="feature">
-          <h3><span class="key">/cancel</span></h3>
-          <p>Stop the current agent operation immediately.</p>
-        </div>
-        <div class="feature">
-          <h3><span class="key">/tasks</span></h3>
-          <p>Manage background tasks. Add recurring jobs or one-off reminders.</p>
-        </div>
-        <div class="feature">
-          <h3><span class="key">/snap &lt;name&gt;</span></h3>
-          <p>Save a complete snapshot of the current state.</p>
-        </div>
-        <div class="feature">
-          <h3><span class="key">/restore &lt;name&gt;</span></h3>
-          <p>Restore from a previously saved snapshot.</p>
-        </div>
-        <div class="feature">
-          <h3><span class="key">/safe</span></h3>
-          <p>Restart in safe mode with restricted permissions.</p>
+        
+        <div class="install-steps">
+          <div class="install-step">
+            <div class="install-step-num">1</div>
+            <p>Installs dependencies via <strong>npm</strong></p>
+          </div>
+          <div class="install-step">
+            <div class="install-step-num">2</div>
+            <p>Builds TypeScript and compiles the app</p>
+          </div>
+          <div class="install-step">
+            <div class="install-step-num">3</div>
+            <p>Registers global hotkey shortcut</p>
+          </div>
+          <div class="install-step">
+            <div class="install-step-num">4</div>
+            <p>Launches in your menubar</p>
+          </div>
         </div>
       </div>
     </section>
     
     <section>
-      <h2>Configuration</h2>
-      <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">On first launch, cmd0 will ask for your API key. Supports:</p>
-      <div class="feature-grid">
-        <div class="feature">
+      <div class="section-header">
+        <h2>Commands</h2>
+        <p>Quick reference</p>
+      </div>
+      <div class="commands-list">
+        <div class="command-item">
+          <span class="command-key">/0</span>
+          <span class="command-desc">Modify my source code. The agent reads, writes, and reloads itself.</span>
+        </div>
+        <div class="command-item">
+          <span class="command-key">/cancel</span>
+          <span class="command-desc">Stop the current agent operation immediately.</span>
+        </div>
+        <div class="command-item">
+          <span class="command-key">/tasks</span>
+          <span class="command-desc">Manage background tasks. Add recurring jobs or one-off reminders.</span>
+        </div>
+        <div class="command-item">
+          <span class="command-key">/snap</span>
+          <span class="command-desc">Save a complete snapshot of the current state for later restoration.</span>
+        </div>
+        <div class="command-item">
+          <span class="command-key">/restore</span>
+          <span class="command-desc">Restore from a previously saved snapshot.</span>
+        </div>
+        <div class="command-item">
+          <span class="command-key">/safe</span>
+          <span class="command-desc">Restart in safe mode with restricted permissions and base files.</span>
+        </div>
+      </div>
+    </section>
+    
+    <section>
+      <div class="section-header">
+        <h2>Configuration</h2>
+        <p>Bring your own API key</p>
+      </div>
+      <div class="features-grid" style="grid-template-columns: repeat(2, 1fr);">
+        <div class="feature-card">
+          <div class="feature-icon" style="font-size: 20px;">🔑</div>
           <h3>OpenRouter</h3>
-          <p>Keys starting with <code>sk-or-...</code>. Default: minimax/minimax-m2.7</p>
+          <p>Keys starting with <code>sk-or-...</code>. Supports hundreds of models including Claude, GPT-4, and Llama. Default: <code>minimax/minimax-m2.7</code></p>
         </div>
-        <div class="feature">
+        <div class="feature-card">
+          <div class="feature-icon" style="font-size: 20px;">🔥</div>
           <h3>Fireworks AI</h3>
-          <p>Keys starting with <code>fw_...</code>. Default: accounts/fireworks/routers/kimi-k2p5-turbo</p>
+          <p>Keys starting with <code>fw_...</code>. Fast inference with Kimi, Llama, and more. Default: <code>accounts/fireworks/routers/kimi-k2p5-turbo</code></p>
         </div>
       </div>
     </section>
     
     <footer>
-      <p>Built with <a href="https://github.com/mario-zechner/pi-coding-agent">pi-coding-agent</a></p>
-      <p style="margin-top: 8px; font-size: 12px;">macOS &amp; Linux • MIT License</p>
+      <div class="footer-content">
+        <div class="footer-brand">
+          <div class="logo">
+            <div class="nav-logo-icon">⌘</div>
+            cmd0
+          </div>
+          <p>A desktop AI agent that lives in your menubar. Built with the pi-coding-agent framework.</p>
+        </div>
+        <div class="footer-links">
+          <h4>Product</h4>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#extensions">Extensions</a></li>
+            <li><a href="#install">Install</a></li>
+            <li><a href="#workflow">How it works</a></li>
+          </ul>
+        </div>
+        <div class="footer-links">
+          <h4>Resources</h4>
+          <ul>
+            <li><a href="https://github.com/dvrosalesm/cmd0" target="_blank">GitHub</a></li>
+            <li><a href="https://github.com/dvrosalesm/pi-notetaker" target="_blank">pi-notetaker</a></li>
+            <li><a href="https://github.com/mariozechner/pi-coding-agent" target="_blank">pi-coding-agent</a></li>
+          </ul>
+        </div>
+        <div class="footer-links">
+          <h4>Legal</h4>
+          <ul>
+            <li><a href="#">MIT License</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 cmd0. All rights reserved.</span>
+        <span>Built with <a href="https://github.com/mariozechner/pi-coding-agent" target="_blank">pi-coding-agent</a></span>
+      </div>
     </footer>
   </div>
 </body>
